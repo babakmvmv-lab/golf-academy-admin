@@ -23,7 +23,7 @@ jobs:
           # "fatal: not in a git directory" and the mirror silently served a stale panel for weeks.
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' \
-            ! -name 'index.html' ! -name 'login.html' ! -name '404.html'             ! -name 'cine.css' ! -name 'tools' \
+            ! -name 'index.html' ! -name 'login.html' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
             -exec rm -rf {} +
           touch .nojekyll
 
@@ -82,9 +82,6 @@ jobs:
                         'var s=C&&C.authSession&&C.authSession();if(!(s&&s.access_token))location.replace(\'/login.html\');'
                         '}catch(e){}})();</script>\n</body>',1)
                       p.write_text(new,encoding='utf-8'); print('index.html: login guard injected')
-          # the cinematic backdrop is this host's own styling; one file, both pages, no network calls
-          python3 tools/cine.py --check
-          python3 tools/cine.py inject
 
           # one-line notices for the old paths, so a bookmark never dies on a 404
           for legacy in ('admin', 'admin/site', 'admin/login'):
@@ -104,6 +101,12 @@ jobs:
             '<body><script>location.replace("https://puttclub.ir/");</script></body></html>\n',encoding='utf-8')
           (root/'robots.txt').write_text('User-agent: *\nDisallow: /\n',encoding='utf-8')
           PY
+
+          # The cinematic backdrop is this host's own styling: one file, both pages, no network calls.
+          # These two lines must stay OUTSIDE the python heredoc above — inside it they are a SyntaxError
+          # (run #12 died exactly that way), which is also how the step silently skipped its tail.
+          python3 tools/cine.py --check
+          python3 tools/cine.py inject
 
           # Refuse to publish a broken shell rather than lock yourself out.
           test -f index.html || { echo '::error=no panel shell (index.html) — refusing to publish'; exit 1; }
