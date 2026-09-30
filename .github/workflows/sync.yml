@@ -14,16 +14,24 @@ jobs:
         run: |
           set -e
           git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
-          find . -mindepth 1 -maxdepth 1 ! -name '.github' ! -name 'CNAME' ! -name 'README.md' -exec rm -rf {} +
+          # NOTE: .git must survive — it was deleted here once and every later step failed with
+          # "fatal: not in a git directory", so the mirror silently stopped publishing for weeks.
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' -exec rm -rf {} +
           touch .nojekyll
-          for item in 404.html 404 _not-found _next academy admin checkout data images login panel product shop videos favicon.ico enter-academy.js index.txt MIS-Golf __next.__PAGE__.txt __next._full.txt __next._head.txt __next._index.txt __next._tree.txt; do
+          for item in 404.html 404 _not-found _next academy admin checkout data images login panel product shop videos favicon.ico enter-academy.js MIS-Golf __next.__PAGE__.txt __next._full.txt __next._head.txt __next._index.txt __next._tree.txt; do
             [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
           done
           cp /tmp/main/site-cloud.*.js . 2>/dev/null || true
           cp /tmp/main/shop-ops.*.js . 2>/dev/null || true
+          # Refuse to publish an empty shell: if the source layout changed, fail the run instead of
+          # pushing a commit that deletes the admin panel.
+          test -f admin/site/index.html || { echo '::error=admin/site/index.html missing in golf-academy-pro — refusing to publish'; exit 1; }
+          ls site-cloud.*.js >/dev/null || { echo '::error=no site-cloud bootstrap in golf-academy-pro — refusing to publish'; exit 1; }
           cat > index.html <<'HTML'
           <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>پنل مدیریت — پات کلاب</title><meta http-equiv="refresh" content="0; url=/admin/site/"></head><body><script>location.replace('/admin/site/');</script></body></html>
           HTML
+          # This host is a private operations surface, not a second public copy of the site.
+          printf 'User-agent: *\nDisallow: /\n' > robots.txt
       - name: Commit if changed
         run: |
           git config user.name "sync-bot"
