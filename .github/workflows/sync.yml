@@ -1,4 +1,4 @@
-name: Publish the ops panel on this host
+name: Publish the original admin panel on its own host
 on:
   schedule:
     - cron: '23 3 * * *'
@@ -11,120 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish the panel · one admin shell, two sections
+      - name: Refresh shared assets without changing the original admin pages
         run: |
-          set -e
+          set -euo pipefail
           git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
-
-          # This host is the admin panel, not a second storefront. Keep the hand-owned shell and the
-          # path-correct site-editor export here; refresh only its current compiled assets from main.
-          # .git must survive: deleting it once made every later mirror fail while Pages served stale HTML.
-          find . -mindepth 1 -maxdepth 1 \
-            ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' \
-            ! -name 'index.html' ! -name 'admin' ! -name 'login.html' ! -name '404.html' \
-            ! -name 'cine.css' ! -name 'tools' \
-            -exec rm -rf {} +
-          touch .nojekyll
-
-          test -f admin/index.html || { echo '::error::missing the admin shell at /admin/'; exit 1; }
-          test -f admin/site/index.html || { echo '::error::missing the path-correct site editor at /admin/site/'; exit 1; }
-          for item in _next images data favicon.ico enter-academy.js; do
-            [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
-          done
-          cp /tmp/main/site-cloud.*.js . 2>/dev/null || true
-          cp /tmp/main/shop-ops.*.js . 2>/dev/null || true
-          cp /tmp/main/source/public-cloud-manifest.json . 2>/dev/null || true
-
-          # Resolve the current hashed bootstrap and every route chunk for both panel faces.
-          python3 - <<'PY'
-          import json,glob,pathlib,re
-          root=pathlib.Path('.')
-          man=json.loads((root/'public-cloud-manifest.json').read_text()) if (root/'public-cloud-manifest.json').exists() else {}
-          boot=man.get('bootstrap') or ''
-          shop=man.get('shopOpsAsset') or ''
-          if not boot:
-              hits=sorted(p.name for p in root.glob('site-cloud.*.js'))
-              boot=hits[-1] if hits else ''
-          if not shop:
-              hits=sorted(p.name for p in root.glob('shop-ops.*.js'))
-              shop=hits[-1] if hits else ''
-          if not boot or not shop: raise SystemExit('no current site-cloud/shop-ops asset was copied')
-          for page in ('admin/index.html','admin/site/index.html','login.html'):
-              p=root/page
-              if not p.exists(): raise SystemExit(f'missing owned page: {page}')
-              s=p.read_text(encoding='utf-8')
-              new=re.sub(r'site-cloud\.[0-9a-f]+\.js',boot,s)
-              for original,renamed in (man.get('chunks') or {}).items():
-                  new=re.sub(r'pc-[0-9a-f]{12}-'+re.escape(original),renamed,new)
-                  new=re.sub(r'(?<![-\w])'+re.escape(original),renamed,new)
-              if new!=s:
-                  p.write_text(new,encoding='utf-8')
-                  print(f'{page}: refreshed bootstrap/route chunk names')
-
-          # Old entry links remain usable, but there is only one panel shell. /admin/site/ is an
-          # internal, path-correct document loaded in that shell's site-management frame.
-          notices={
-              'admin/login':'/login.html?next=%2Fadmin%2F%3Fsection%3Dstore',
-              'site':'/admin/?section=site',
-              'shop':'/admin/?section=store',
-          }
-          for legacy,where in notices.items():
-              d=root/legacy;d.mkdir(parents=True,exist_ok=True)
-              (d/'index.html').write_text(
-                '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
-                '<meta name="robots" content="noindex"><title>رفتن به پنل مدیریت</title>'
-                f'<meta http-equiv="refresh" content="0; url={where}"></head>'
-                f'<body><p>در حال رفتن به بخش مدیریت… <a href="{where}">ادامه</a></p>'
-                f'<script>location.replace("{where}");</script></body></html>\n',encoding='utf-8')
-
-          # Unknown public paths on this host still belong to the public website, never this panel.
-          (root/'404.html').write_text(
-            '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
-            '<meta name="robots" content="noindex"><title>پات‌کلاب</title>'
-            '<meta http-equiv="refresh" content="0; url=https://puttclub.ir/"></head>'
-            '<body><script>location.replace("https://puttclub.ir/");</script></body></html>\n',encoding='utf-8')
-          (root/'robots.txt').write_text('User-agent: *\nDisallow: /\n',encoding='utf-8')
-          PY
-
-          # The cinematic layer is only a background behind the admin shell and sign-in card; it does
-          # not add floating controls or the public site's masthead.
-          python3 tools/cine.py --check
-          python3 tools/cine.py inject
-
-          # Fail closed when either admin section or the current asset chain goes missing.
-          test -f index.html || { echo '::error::missing root entry redirect'; exit 1; }
-          test -f admin/index.html || { echo '::error::missing /admin/ shell'; exit 1; }
-          test -f admin/site/index.html || { echo '::error::missing /admin/site/ editor'; exit 1; }
-          test -f login.html || { echo '::error::missing login page'; exit 1; }
-          BOOT=$(grep -o 'site-cloud\.[0-9a-f]*\.js' admin/index.html | head -1)
-          test -n "$BOOT" -a -f "$BOOT" || { echo "::error::admin shell points at missing bootstrap ($BOOT)"; exit 1; }
-          grep -q "$BOOT" admin/site/index.html || { echo '::error::site editor does not share the shell bootstrap'; exit 1; }
-          grep -q "$BOOT" login.html || { echo '::error::login page does not share the current bootstrap'; exit 1; }
-          SHOP=$(grep -o 'shop-ops\.[0-9a-f]*\.js' "$BOOT" | head -1)
-          test -n "$SHOP" -a -f "$SHOP" || { echo "::error::bootstrap points at a missing shop-ops asset ($SHOP)"; exit 1; }
-          grep -q 'پنل مدیریت پات‌کلاب' admin/index.html || { echo '::error::admin shell title/identity is missing'; exit 1; }
-          grep -q 'data-admin-section="site"' admin/index.html || { echo '::error::site section button is missing'; exit 1; }
-          grep -q 'data-admin-section="store"' admin/index.html || { echo '::error::store section button is missing'; exit 1; }
-          grep -q "frame.src='/admin/site/'" admin/index.html || { echo '::error::site section is not mounted from its route-correct page'; exit 1; }
-          grep -q 'admin-login-guard' admin/index.html || { echo '::error::the admin shell has no session guard'; exit 1; }
-          grep -q 'مدیریت سایت' admin/site/index.html || { echo '::error::site editor export is missing'; exit 1; }
-          grep -q 'backupView2' "$SHOP" || echo "::warning::the mirrored shop-ops has no backupView2 — the backup screen may not be published yet"
-          python3 tools/cine.py verify
-          python3 - <<'PY'
-          import pathlib,re
-          pages=('index.html','admin/index.html','admin/site/index.html','login.html')
-          bad=[]
-          for page in pages:
-              text=pathlib.Path(page).read_text(encoding='utf-8')
-              for ref in set(re.findall(r'(?:src|href)="(/[^"?#]+\.(?:js|css|ico|png|jpe?g|svg|woff2?))"',text)):
-                  if not pathlib.Path('.'+ref).exists(): bad.append(f'{page} → {ref}')
-          if bad: raise SystemExit('dangling references:\n  '+'\n  '.join(sorted(bad)))
-          print('static references: all present')
-          PY
+          python3 tools/sync_admin_host.py /tmp/main
+          git diff --check
 
       - name: Commit if changed
         run: |
           git config user.name "sync-bot"
           git config user.email "sync-bot@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet && echo "no changes" || (git commit -m "sync: publish ops panel from golf-academy-pro" && git push)
+          git diff --cached --quiet && echo "no changes" || (git commit -m "sync: refresh original admin host assets" && git push)

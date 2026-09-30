@@ -96,7 +96,23 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
     try{
       const data=await request(C.url+'/auth/v1/token?grant_type=password',{method:'POST',headers:headers(),body:JSON.stringify({email,password})});
       const s=saveAuth(data);schedule();return {ok:true,user:{id:s.user.id,email:s.user.email,name:s.user.name,cloud:true,store_only:s.user.app_metadata?.web_admin!==true}};
-    }catch(e){if(e.code==='WEB_ADMIN_REQUIRED')throw e;const out=error('ورود ابری انجام نشد؛ ایمیل و رمز مدیر سایت را بررسی کنید.',e.status||401,'WEB_AUTH_REQUIRED');out.errorCode=e.errorCode||'';out.serverMessage=e.serverMessage||'';throw out;}
+    }catch(e){
+      if(e.code==='WEB_ADMIN_REQUIRED')throw e;
+      const code=String(e.errorCode||e.code||''),status=Number(e.status)||401;
+      let message;
+      if(/rate|over_request|too many/i.test(code+' '+String(e.serverMessage||''))||status===429)
+        message='ورود موقتاً به‌دلیل تلاش‌های زیاد محدود شده؛ چند دقیقه بعد دوباره امتحان کنید.';
+      else if(code==='email_not_confirmed')
+        message='ایمیل این حساب در سرویس ابری تأیید نشده است.';
+      else if(code==='invalid_credentials'||code==='invalid_grant'||status===400||status===401)
+        message='ورود رد شد: نام کاربری یا رمز حساب ابری درست نیست. نام Admin به admin@puttclub.ir نگاشت می‌شود.';
+      else if(code==='NETWORK'||code==='TIMEOUT'||status===0||/ارتباط با ابر|مهلت/.test(String(e.message||'')))
+        message='اتصال مرورگر به سرویس ورود ابری برقرار نشد؛ اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.';
+      else
+        message='ورود ابری انجام نشد (HTTP '+status+(code?'، کد '+code:'')+'). همین پیام را بفرستید؛ رمز را نفرستید.';
+      const out=error(message,status,'WEB_AUTH_REQUIRED');
+      out.errorCode=code;out.serverMessage=String(e.serverMessage||e.message||'').slice(0,200);throw out;
+    }
   }
   function signOut(){
     const s=authSession();put(AUTH,null);try{localStorage.removeItem('puttclub_admin');}catch(e){}

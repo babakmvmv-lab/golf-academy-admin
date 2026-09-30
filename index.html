@@ -1,22 +1,8 @@
 <!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-<meta charset="utf-8">
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta http-equiv="refresh" content="0;url=/admin/">
-<title>ورود به پنل مدیریت | پات‌کلاب</title>
-</head>
-<body>
-<p>در حال ورود به پنل مدیریت… <a id="continue" href="/admin/">ادامه</a></p>
-<script>
-(function(){
- var q=new URLSearchParams(location.search),to='/admin/';
- if(q.has('loggedout'))to='/login.html?loggedout=1';
- else if(q.get('section')==='site')to='/admin/?section=site';
- else if(q.get('section')==='store'||q.get('shop')==='1')to='/admin/?section=store';
- document.getElementById('continue').href=to;location.replace(to);
-})();
-</script>
-</body>
-</html>
+<title>داشبورد مدیر | پات‌کلاب</title></head>
+<body><p>در حال باز کردن داشبورد مدیر… <a href="/admin/">ادامه</a></p>
+<script>location.replace('/admin/');</script></body></html>
