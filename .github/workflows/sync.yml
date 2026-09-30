@@ -23,7 +23,7 @@ jobs:
           # "fatal: not in a git directory" and the mirror silently served a stale panel for weeks.
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' \
-            ! -name 'index.html' ! -name 'login.html' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
+            ! -name 'index.html' ! -name 'login.html' ! -name 'admin' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
             -exec rm -rf {} +
           touch .nojekyll
 
@@ -62,7 +62,7 @@ jobs:
               hits=sorted(p.name for p in root.glob('shop-ops.*.js'))
               shop=hits[-1] if hits else ''
           if not boot or not shop: raise SystemExit('nothing to point the shell at (no bootstrap/shop-ops assets)')
-          for page in ('index.html','login.html'):
+          for page in ('index.html','login.html','admin/index.html'):
               p=root/page
               if not p.exists(): continue
               s=p.read_text(encoding='utf-8')
@@ -83,11 +83,13 @@ jobs:
                         '}catch(e){}})();</script>\n</body>',1)
                       p.write_text(new,encoding='utf-8'); print('index.html: login guard injected')
 
-          # One-line notices for the old paths, so a bookmark never dies on a 404 — and /admin is not
-          # only a bookmark: the exported admin card still links «پنل فروشگاه» to /admin. On this host the
-          # shop workspace is a mode of the panel page (?shop=1), so that path must resolve to the MODE,
-          # not to the root, or the shop becomes unreachable by construction.
-          for legacy, where in (('admin', '/?shop=1'), ('admin/site', '/'), ('admin/login', '/')):
+          # One-line notices for the paths that moved, so a bookmark never dies on a 404. /admin itself is
+          # NOT a notice: the exported dashboard document (title «داشبورد مدیر») is committed at
+          # admin/index.html and served here again — the exact path the exported login card links to for
+          # «پنل فروشگاه» (_next/static/chunks/12lzqn_~_d9qf.js @5033). Only the two routes that used to
+          # nest under it stay redirects: the site CMS is this host's root, and sign-in is /login.html
+          # (where an expired session must be brought back from).
+          for legacy, where in (('admin/site', '/'), ('admin/login', '/login.html?next=%2Fadmin%2F')):
               d=root/legacy
               d.mkdir(parents=True,exist_ok=True)
               (d/'index.html').write_text(
@@ -119,6 +121,12 @@ jobs:
           grep -q "$BOOT" login.html || { echo "::error=login.html points at a different bootstrap than index.html"; exit 1; }
           SHOP=$(grep -o 'shop-ops\.[0-9a-f]*\.js' "$BOOT" | head -1)
           test -n "$SHOP" -a -f "$SHOP" || { echo "::error=bootstrap points at a missing shop-ops asset ($SHOP)"; exit 1; }
+          test -f admin/index.html || { echo '::error=no /admin dashboard document — refusing to publish'; exit 1; }
+          grep -q 'داشبورد مدیر' admin/index.html || { echo '::error=admin/index.html is not the dashboard document any more'; exit 1; }
+          # (the python check below walks every src/href, so no grep here: the flight payload inside
+          #  the document repeats chunk names with \" escapes, and a grep match is not a reference)
+          grep -q '0s294n3n15ion.js' admin/index.html || { echo '::error=the dashboard lost its workspace chunk'; exit 1; }
+          grep -q 'site-cloud\.' admin/index.html || { echo '::error=the dashboard has no bootstrap reference to refresh'; exit 1; }
           python3 tools/cine.py verify
           grep -q backupView2 "$SHOP" || echo "::warning::the mirrored shop-ops has no backupView2 — the backup screen may not be published yet"
           python3 - <<'PY'
@@ -126,7 +134,7 @@ jobs:
           # a screen (that is exactly what a copy-list drift does)
           import pathlib,re
           bad=[]
-          for page in ('index.html','login.html'):
+          for page in ('index.html','login.html','admin/index.html'):
               text=pathlib.Path(page).read_text(encoding='utf-8')
               for ref in set(re.findall(r'(?:src|href)="(/[^"?#]+\.(?:js|css|ico|png|jpe?g|svg|woff2?))"',text)):
                   if not pathlib.Path('.'+ref).exists(): bad.append(f'{page} → {ref}')

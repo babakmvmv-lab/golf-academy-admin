@@ -7,27 +7,13 @@
        single static document: the workspace itself (SHOP_OPS) is loaded on demand by the cloud layer.
        So the shop is a mode of this page, reached by ?shop=1 — one URL, one shell, no second copy. -->
   <script id="shop-ops-mount">
+  /* The shop workspace is a document of its own again: the exported dashboard lives at /admin/
+     («داشبورد مدیر | پات‌کلاب»), mounted by pc-cb7e65280277-0s294n3n15ion.js through the cloud layer.
+     /?shop=1 existed only while /admin was a stub, so it is now a pointer — one surface for the shop,
+     and links/bookmarks/`next` values written before the restore still land on it. */
   (function(){
     if(!/[?&]shop=1/.test(location.search))return;
-    var host=document.createElement('div');host.id='shop-ops';document.body.insertBefore(host,document.body.firstChild);
-    var back=document.createElement('a');
-    back.href='/';back.id='shop-ops-back';back.textContent='→ مدیریت سایت';
-    back.setAttribute('style','position:fixed;top:10px;left:12px;z-index:40;font:600 12px Vazirmatn,Tahoma,sans-serif;'
-      +'color:#f2ecdd;background:#0a1712e6;border:1px solid #c9a24b66;border-radius:999px;padding:7px 12px;text-decoration:none');
-    document.body.appendChild(back);
-    var app=document.querySelector('main');if(app)app.hidden=true;
-    document.documentElement.style.background='#030b08';
-    var C=window.PC_SITE_CLOUD;
-    function say(t){host.innerHTML='<div style="padding:22px;margin:14px;border:1px solid #b4453d66;border-radius:14px;'
-      +'background:#150a0ae0;color:#f2ecdd;font:14px Vazirmatn,Tahoma,sans-serif">'+t+'</div>';}
-    if(!C||!C.loadShopOps){say('لایهٔ ابری بارگذاری نشده؛ صفحه را دوباره بارگذاری کنید.');return;}
-    if(!C.authSession()){location.replace('/login.html?next=%2F%3Fshop%3D1');return;}
-    say('در حال باز کردن فضای خصوصی فروشگاه…');
-    C.loadShopOps().then(function(){
-      if(!window.SHOP_OPS)throw Error('پنل فروشگاه کامل بارگذاری نشد.');
-      if(!host.isConnected)return;
-      host.innerHTML='';window.SHOP_OPS.mount(host);
-    }).catch(function(e){say((e&&e.message)||'باز کردن فضای فروشگاه انجام نشد.')});
+    location.replace('/admin/');
   })();
   </script>
 
