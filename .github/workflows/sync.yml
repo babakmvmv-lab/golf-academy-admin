@@ -1,0 +1,31 @@
+name: Mirror site from main repo
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mirror the site (admin panel included)
+        run: |
+          set -e
+          git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
+          find . -mindepth 1 -maxdepth 1 ! -name '.github' ! -name 'CNAME' ! -name 'README.md' -exec rm -rf {} +
+          for item in 404.html 404 _not-found _next academy admin checkout data images login panel product shop videos favicon.ico enter-academy.js index.txt MIS-Golf __next.__PAGE__.txt __next._full.txt __next._head.txt __next._index.txt __next._tree.txt; do
+            [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
+          done
+          cp /tmp/main/site-cloud.*.js . 2>/dev/null || true
+          cp /tmp/main/shop-ops.*.js . 2>/dev/null || true
+          cat > index.html <<'HTML'
+          <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>پنل مدیریت — پات کلاب</title><meta http-equiv="refresh" content="0; url=/admin/site/"></head><body><script>location.replace('/admin/site/');</script></body></html>
+          HTML
+      - name: Commit if changed
+        run: |
+          git config user.name "sync-bot"
+          git config user.email "sync-bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && echo "no changes" || (git commit -m "sync: mirror from golf-academy-pro" && git push)

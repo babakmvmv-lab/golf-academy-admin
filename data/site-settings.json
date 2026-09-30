@@ -1,0 +1,258 @@
+[
+ {
+  "key": "brand",
+  "value": {
+   "logo": "/images/academy-logo.jpg",
+   "enName": "Putt Club Golf Academy",
+   "faName": "آکادمی گلف پات کلاب",
+   "logoHd": "/images/academy-logo-hd.jpg",
+   "faShort": "پات کلاب",
+   "tagline": "آکادمی گلف"
+  }
+ },
+ {
+  "key": "theme",
+  "value": {
+   "sage": "#93aa9c",
+   "cream": "#f2ecdd",
+   "gold300": "#e3c98f",
+   "gold400": "#d4af6a",
+   "gold500": "#c9a24b",
+   "gold600": "#a98335",
+   "forest800": "#12271e",
+   "forest900": "#0a1712",
+   "forest950": "#050d09"
+  }
+ },
+ {
+  "key": "contact",
+  "value": {
+   "email": "info@puttclub.ir",
+   "hours": "شنبه تا پنجشنبه — ۸ صبح تا ۸ شب",
+   "phone": "09369018285",
+   "domain": "puttclub.ir",
+   "address": "اهواز",
+   "phoneFa": "۰۹۳۶۹۰۱۸۲۸۵",
+   "siteUrl": "https://puttclub.ir",
+   "telegram": "",
+   "whatsapp": "",
+   "instagram": "Puttclub.Golfacademy",
+   "instagramUrl": "https://www.instagram.com/Puttclub.Golfacademy"
+  }
+ },
+ {
+  "key": "menu",
+  "value": [
+   {
+    "href": "/",
+    "label": "خانه",
+    "visible": true
+   },
+   {
+    "href": "/#academy",
+    "label": "آکادمی",
+    "visible": true
+   },
+   {
+    "href": "/#programs",
+    "label": "دوره‌ها",
+    "visible": true
+   },
+   {
+    "href": "/shop/",
+    "label": "فروشگاه",
+    "visible": true
+   },
+   {
+    "href": "/#contact",
+    "label": "تماس",
+    "visible": true
+   }
+  ]
+ },
+ {
+  "key": "hero",
+  "value": {
+   "badge": "Putt Club Golf Academy — اهواز",
+   "line1": "آکادمی گلف",
+   "line2": "پات کلاب",
+   "stats": [
+    {
+     "label": "خانه آکادمی",
+     "value": "اهواز"
+    },
+    {
+     "label": "سطوح آموزشی",
+     "value": "مبتدی تا حرفه‌ای"
+    },
+    {
+     "label": "وب‌سایت رسمی",
+     "value": "puttclub.ir"
+    }
+   ],
+   "subtitle": "از اولین سوئینگ تا آمادگی مسابقه؛ آموزش اصولی گلف با مربیان حرفه‌ای در اهواز، همراه با فروشگاه تخصصی تجهیزات اورجینال."
+  }
+ },
+ {
+  "key": "about",
+  "value": {
+   "image": "/images/academy-about.jpg",
+   "title": "آکادمی گلف پات کلاب",
+   "kicker": "آکادمی ما",
+   "paragraphs": [
+    "آکادمی گلف پات کلاب در اهواز، خانه‌ای برای شروع و رشد در دنیای گلف است؛ از آشنایی با گریپ و استنس تا سوئینگ حرفه‌ای و آمادگی مسابقه.",
+    "در کنار آموزش، فروشگاه تخصصی ما تجهیزات اورجینال را با ضمانت اصالت در اختیار هنرجوها و گلف‌بازان سراسر کشور می‌گذارد."
+   ],
+   "imageCaption": "Putt Club Golf Academy"
+  }
+ },
+ {
+  "key": "coursesSection",
+  "value": {
+   "desc": "از اولین ضربه تا سکوی قهرمانی؛ برای هر سطح و هر هدف، یک برنامه آموزشی مشخص داریم. برای دیدن جزئیات هر دوره، روی آن بزنید.",
+   "title": "مسیر رشد شما در",
+   "kicker": "دوره‌های آموزشی",
+   "titleAccent": "آکادمی"
+  }
+ },
+ {
+  "key": "seasonPodium",
+  "value": {
+   "seasonYear": 1405,
+   "matchesHeld": 0,
+   "playersActive": 0,
+   "updatedAt": "",
+   "top": []
+  }
+ },
+ {
+  "key": "seasonCalendar",
+  "value": {
+   "seasonYear": 1405,
+   "updatedAt": "",
+   "events": []
+  }
+ },
+ {
+  "key": "courseSignup",
+  "value": {
+   "mode": "presignup",
+   "thankYou": "تشکر از ثبت‌نام شما؛ به‌زودی با شما تماس می‌گیریم."
+  }
+ },
+ {
+  "key": "testimonialsSection",
+  "value": {
+   "desc": "تجربه‌تان را با ما به اشتراک بگذارید؛ پس از تأیید مدیر نمایش داده می‌شود.",
+   "title": "از زبان",
+   "kicker": "نظر اعضا",
+   "titleAccent": "گلف‌بازان"
+  }
+ },
+ {
+  "key": "footer",
+  "value": {
+   "aboutText": "آکادمی گلف پات کلاب در اهواز؛ آموزش اصولی گلف از مبتدی تا حرفه‌ای، همراه با فروشگاه تخصصی تجهیزات اورجینال."
+  }
+ },
+ {
+  "key": "shopCategories",
+  "value": {
+   "categories": [
+    {
+     "name": "چوب‌ها",
+     "sortOrder": 1
+    },
+    {
+     "name": "توپ‌ها",
+     "sortOrder": 2
+    },
+    {
+     "name": "کیف‌ها",
+     "sortOrder": 3
+    },
+    {
+     "name": "کفش و دستکش",
+     "sortOrder": 4
+    },
+    {
+     "name": "پوشاک",
+     "sortOrder": 5
+    },
+    {
+     "name": "لوازم جانبی",
+     "sortOrder": 6
+    }
+   ]
+  }
+ },
+ {
+  "key": "shopGate",
+  "value": {
+   "title": "فروشگاه به‌زودی باز می‌شود",
+   "enabled": true,
+   "message": "فروشگاه پات‌کلاب در حال آماده‌سازی نهایی است و فعلاً فقط به‌صورت آزمایشی باز است؛ سفارش‌ها در این مرحله نهایی نمی‌شوند. از شکیبایی شما سپاسگزاریم — به‌زودی با فروشگاه کامل در خدمتیم.",
+   "backLabel": "برگشت به سایت",
+   "showOnShop": true,
+   "overlayBlur": 16,
+   "overlayOpacity": 60,
+   "showOnCheckout": true
+  }
+ },
+ {
+  "key": "marquee",
+  "value": {
+   "enabled": true,
+   "items": [
+    {
+     "id": "marquee-01",
+     "text": "آکادمی گلف پات کلاب — اهواز",
+     "visible": true
+    },
+    {
+     "id": "marquee-02",
+     "text": "آموزش از مبتدی تا حرفه‌ای",
+     "visible": true
+    },
+    {
+     "id": "marquee-03",
+     "text": "فروشگاه تجهیزات اورجینال",
+     "visible": true
+    },
+    {
+     "id": "marquee-04",
+     "text": "مشاوره تخصصی خرید",
+     "visible": true
+    },
+    {
+     "id": "marquee-05",
+     "text": "ارسال به سراسر کشور",
+     "visible": true
+    },
+    {
+     "id": "marquee-06",
+     "text": "ضمانت اصالت کالا",
+     "visible": true
+    }
+   ]
+  }
+ },
+ {
+  "key": "showcase",
+  "value": {
+   "items": []
+  }
+ },
+ {
+  "key": "paymentGateways",
+  "value": {
+   "methods": []
+  }
+ },
+ {
+  "key": "payCards",
+  "value": {
+   "cards": []
+  }
+ }
+]
