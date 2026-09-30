@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish (panel at the root of this host)
+      - name: Publish (shop workspace at the root, site CMS under /site/)
         run: |
           set -e
           git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
@@ -23,15 +23,20 @@ jobs:
           # "fatal: not in a git directory" and the mirror silently served a stale panel for weeks.
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' \
-            ! -name 'index.html' ! -name 'login.html' ! -name 'admin' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
+            ! -name 'index.html' ! -name 'login.html' ! -name 'site' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
             -exec rm -rf {} +
           touch .nojekyll
 
           # Panel shell + everything it loads by absolute path.
+          # The site CMS document may come back from the main repo; it lands in /site/ and NEVER in '.'
+          # — copying it onto the root is what used to bury the shop workspace here (the root is this
+          # host's own dashboard document, and a blind `cp -r …/. .` would replace it with the CMS page).
           if [ -f /tmp/main/admin/site/index.html ]; then
-            cp -r /tmp/main/admin/site/. .
+            mkdir -p site
+            cp -r /tmp/main/admin/site/. site/
+            echo "took the site CMS document from the main repo into /site/"
           else
-            echo "admin/site/ is gone from the main repo — keeping this repo's own shell and refreshing only the assets."
+            echo "admin/site/ is gone from the main repo — keeping this repo's own /site/ shell and refreshing only the assets."
           fi
           for item in _next images data favicon.ico enter-academy.js; do
             [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
@@ -62,7 +67,7 @@ jobs:
               hits=sorted(p.name for p in root.glob('shop-ops.*.js'))
               shop=hits[-1] if hits else ''
           if not boot or not shop: raise SystemExit('nothing to point the shell at (no bootstrap/shop-ops assets)')
-          for page in ('index.html','login.html','admin/index.html'):
+          for page in ('index.html','site/index.html','login.html'):
               p=root/page
               if not p.exists(): continue
               s=p.read_text(encoding='utf-8')
@@ -73,23 +78,25 @@ jobs:
                   new=re.sub(r'pc-[0-9a-f]{12}-'+re.escape(original),renamed,new)
                   new=re.sub(r'(?<![-\w])'+re.escape(original),renamed,new)
               if new!=s: p.write_text(new,encoding='utf-8'); print(f'{page}: refreshed asset names')
-              if page=='index.html':
-                  # this host has to be able to sign you back in on its own: shop-ops only reads an
-                  # existing session, and the widget that used to offer the form is hidden on that screen
-                  if '<!-- admin-login-guard -->' not in new:
-                      new=new.replace('</body>',
-                        '  <!-- admin-login-guard -->\n  <script>(function(){try{var C=window.PC_SITE_CLOUD;'
-                        'var s=C&&C.authSession&&C.authSession();if(!(s&&s.access_token))location.replace(\'/login.html\');'
-                        '}catch(e){}})();</script>\n</body>',1)
-                      p.write_text(new,encoding='utf-8'); print('index.html: login guard injected')
+              if page in ('index.html','site/index.html'):
+                  # both panel documents have to be able to sign you back in on their own: shop-ops only
+                  # reads an existing session, and the widget that used to offer the form is hidden there.
+                  # The block is STRIPPED and rewritten every run — these pages are committed back into the
+                  # repo, so "keep it if present" freezes the first version forever (that is how a /site/
+                  # visitor ended up sent to '/' after signing in: an old guard with no next= was kept).
+                  new=re.sub(r'\s*<!-- admin-login-guard -->.*?</script>','',new,flags=re.S)
+                  nxt = '%2F' if page=='index.html' else '%2Fsite%2F'
+                  new=new.replace('</body>',
+                    '  <!-- admin-login-guard -->\n  <script>(function(){try{var C=window.PC_SITE_CLOUD;'
+                    'var s=C&&C.authSession&&C.authSession();if(!(s&&s.access_token))location.replace(\'/login.html?next='
+                    + nxt + '\');}catch(e){}})();</script>\n</body>',1)
+                  p.write_text(new,encoding='utf-8'); print(page+': login guard rewritten (next=' + nxt + ')')
 
-          # One-line notices for the paths that moved, so a bookmark never dies on a 404. /admin itself is
-          # NOT a notice: the exported dashboard document (title «داشبورد مدیر») is committed at
-          # admin/index.html and served here again — the exact path the exported login card links to for
-          # «پنل فروشگاه» (_next/static/chunks/12lzqn_~_d9qf.js @5033). Only the two routes that used to
-          # nest under it stay redirects: the site CMS is this host's root, and sign-in is /login.html
-          # (where an expired session must be brought back from).
-          for legacy, where in (('admin/site', '/'), ('admin/login', '/login.html?next=%2Fadmin%2F')):
+          # One-line notices, so nothing that was ever linked dies on a 404. /admin is the important one:
+          # the exported login card links «پنل فروشگاه» to /admin (_next/static/chunks/12lzqn_~_d9qf.js
+          # @5033) and «پنل سایت» to /admin/site (@5297) — both are the documents themselves now one level
+          # up, so the notices hop to / and /site/ rather than to a nested path.
+          for legacy, where in (('admin', '/'), ('admin/site', '/site/'), ('admin/login', '/login.html?next=%2F')):
               d=root/legacy
               d.mkdir(parents=True,exist_ok=True)
               (d/'index.html').write_text(
@@ -119,14 +126,17 @@ jobs:
           BOOT=$(grep -o 'site-cloud\.[0-9a-f]*\.js' index.html | head -1)
           test -n "$BOOT" -a -f "$BOOT" || { echo "::error=index.html points at a missing bootstrap ($BOOT)"; exit 1; }
           grep -q "$BOOT" login.html || { echo "::error=login.html points at a different bootstrap than index.html"; exit 1; }
+          grep -q "$BOOT" site/index.html || { echo "::error=/site/ points at a different bootstrap than the root"; exit 1; }
           SHOP=$(grep -o 'shop-ops\.[0-9a-f]*\.js' "$BOOT" | head -1)
           test -n "$SHOP" -a -f "$SHOP" || { echo "::error=bootstrap points at a missing shop-ops asset ($SHOP)"; exit 1; }
-          test -f admin/index.html || { echo '::error=no /admin dashboard document — refusing to publish'; exit 1; }
-          grep -q 'داشبورد مدیر' admin/index.html || { echo '::error=admin/index.html is not the dashboard document any more'; exit 1; }
-          # (the python check below walks every src/href, so no grep here: the flight payload inside
-          #  the document repeats chunk names with \" escapes, and a grep match is not a reference)
-          grep -q '0s294n3n15ion.js' admin/index.html || { echo '::error=the dashboard lost its workspace chunk'; exit 1; }
-          grep -q 'site-cloud\.' admin/index.html || { echo '::error=the dashboard has no bootstrap reference to refresh'; exit 1; }
+          # the root IS the shop workspace now: it must stay the exported dashboard document with its
+          # workspace chunk and a bootstrap to refresh (a silent swap back to the CMS page is what this
+          # host looked like for weeks — the title and the chunk are how we notice)
+          grep -q 'داشبورد مدیر' index.html || { echo '::error=index.html is not the shop dashboard document'; exit 1; }
+          grep -q '0s294n3n15ion.js' index.html || { echo '::error=the dashboard lost its workspace chunk'; exit 1; }
+          grep -q 'site-cloud\.' index.html || { echo '::error=the dashboard has no bootstrap reference to refresh'; exit 1; }
+          test -f site/index.html || { echo '::error=no /site/ CMS document — refusing to publish'; exit 1; }
+          grep -q 'مدیریت سایت' site/index.html || { echo '::error=site/index.html is not the site CMS document'; exit 1; }
           python3 tools/cine.py verify
           grep -q backupView2 "$SHOP" || echo "::warning::the mirrored shop-ops has no backupView2 — the backup screen may not be published yet"
           python3 - <<'PY'
@@ -134,7 +144,7 @@ jobs:
           # a screen (that is exactly what a copy-list drift does)
           import pathlib,re
           bad=[]
-          for page in ('index.html','login.html','admin/index.html'):
+          for page in ('index.html','site/index.html','login.html'):
               text=pathlib.Path(page).read_text(encoding='utf-8')
               for ref in set(re.findall(r'(?:src|href)="(/[^"?#]+\.(?:js|css|ico|png|jpe?g|svg|woff2?))"',text)):
                   if not pathlib.Path('.'+ref).exists(): bad.append(f'{page} → {ref}')

@@ -5,7 +5,7 @@ published pages, and verifies the pages carry the CURRENT css (not a frozen firs
 
   python3 tools/cine.py            # fill the FAIRWAY / GRAIN markers in cine.css
   python3 tools/cine.py --check    # markers filled, every data URI parses to a whole SVG
-  python3 tools/cine.py inject     # insert-or-refresh the block in index.html + login.html
+  python3 tools/cine.py inject     # insert-or-refresh the block in every panel page (see PAGES)
   python3 tools/cine.py verify     # fail if a page has no block or a stale one
 
 Why inject rather than commit the block into the pages: this workflow commits its output back into
@@ -21,7 +21,8 @@ import xml.dom.minidom
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CSS = ROOT / "cine.css"
 START, END = "<!-- ga-cinematic -->", "<!-- /ga-cinematic -->"
-PAGES = ("index.html", "login.html")
+# both panel documents, wherever they live on this host: / is the shop workspace, /site/ the site CMS
+PAGES = ("index.html", "site/index.html", "login.html")
 # Only characters inert inside a URL may stay literal. `#` starts the fragment (a raw one truncates
 # the SVG), and `<`/quotes/spaces must be percent-encoded — a "readable" data URI here means a
 # background that silently never paints.
@@ -162,7 +163,7 @@ def verify(root: pathlib.Path | None = None) -> int:
     if bad:
         print("\n".join(bad))
         return 1
-    print("cinematic backdrop: current on both pages")
+    print("cinematic backdrop: current on every panel page")
     return 0
 
 
