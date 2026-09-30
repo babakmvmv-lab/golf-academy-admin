@@ -15,7 +15,10 @@ import urllib.parse
 import xml.dom.minidom
 
 CSS = pathlib.Path(__file__).resolve().parent.parent / "cine.css"
-SAFE = "<>/#'; =,.:-"          # deliberately no `"`
+# Only characters that are inert inside a URL may stay literal. `#` starts the fragment (a raw one
+# truncates the SVG), `<`/`>`/quotes/spaces must be percent-encoded — a "readable" data URI here is
+# a background that silently never paints.
+SAFE = ",-:.=[]{}()"
 
 
 def fairway() -> str:
@@ -42,8 +45,9 @@ def grain() -> str:
 
 def uri(svg: str) -> str:
     enc = urllib.parse.quote(svg, safe=SAFE)
-    if '"' in enc:
-        raise SystemExit("a raw quote leaked into the data URI")
+    for bad in ('"', '#', '<', '>', chr(10)):
+        if bad in enc:
+            raise SystemExit(f"a raw {bad!r} leaked into the data URI")
     xml.dom.minidom.parseString(urllib.parse.unquote(enc))
     return 'url("data:image/svg+xml,' + enc + '")'
 
@@ -63,8 +67,16 @@ def main() -> int:
         print(f"expected 2 data URIs in cine.css, found {len(found)}")
         return 1
     for raw in found:
-        svg = urllib.parse.unquote(raw[len("data:image/svg+xml,"):])
+        body = raw[len("data:image/svg+xml,"):]
+        parsed = urllib.parse.urlparse(raw)
+        if parsed.fragment:                     # a raw # would cut the payload here
+            print("data URI has a fragment — it will render as nothing:", parsed.fragment[:40])
+            return 1
+        svg = urllib.parse.unquote(body)
         xml.dom.minidom.parseString(svg)        # throws if the URI was truncated
+        if not svg.rstrip().endswith("</svg>"):
+            print("data URI is truncated:", len(svg), "chars")
+            return 1
     # the layer needs its four spans to exist anywhere this host injects it
     print(f"ok: 2 data URIs decode to valid SVG; rules={len(re.findall(r'[{@]', text))}")
     return 0
