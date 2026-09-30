@@ -723,7 +723,7 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
   });
  }
 
- /* ── نسخهٔ ۲ تنظیمات بکاپ: همان api()های قبلی (backup_get / backup_save / backup_now) و همان
+  /* ── نسخهٔ ۲ تنظیمات بکاپ: همان api()های قبلی (backup_get / backup_save / backup_now) و همان
    ذخیره در web_setting_backup، ولی همهٔ کلیدهایی که موتور v2 می‌خواند در دسترس است.
    موتور مقادیر ناشناخته/خراب را clamp می‌کند و هشدارش را در «وضعیت» نشان می‌دهد، پس این فرم
    نمی‌تواند بکاپ را بشکند. برای بازگشت: در navigate() همان backupView(el) را بگذارید. ── */
@@ -741,7 +741,8 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
   retention:{daily:30,weekly:13,monthly:12,maxTotalMB:2000,pinOnRelease:true},
   destinations:[{type:'github',label:BK2_DEST.github.label,on:true,config:{branch:'main',path:'backups',commitPrefix:'backup'}},
    {type:'supabase',label:BK2_DEST.supabase.label,on:false,config:{bucket:'golf-backups'}}],
-  emails:{notify:false,onSuccess:true,list:[],digest:'none',subjectPrefix:'[پات‌کلاب]'},
+  emails:{notify:false,onSuccess:true,list:[],digest:'weekly',subjectPrefix:'[پات‌کلاب]'},
+  academySchedule:{on:false,mode:'',time:'',intervalHours:0},
   verify:{afterWrite:true,restoreDrill:'none',graceMinutes:90},
   limits:{maxTotalMB:900,timeoutSec:900,retries:2}});
  const bk2Safe=cur=>({compress:true,redact:{authUsers:'ids-only',dropTables:['audit']},
@@ -758,6 +759,14 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
  function bk2Validate(st){const errors=[],warnings=[];
   if(!/^\d{1,2}:\d{2}$/.test(String(st.time||'')) )errors.push('ساعت را به شکل ۰۴:۰۰ وارد کن.');
   if(!st.structures.siteShop&&!st.structures.academy)errors.push('هیچ ساختاری انتخاب نشده — بکاپی گرفته نمی‌شود.');
+  const ac=st.academySchedule||{};
+  if(ac.on){
+    if(ac.time&&!/^\d{1,2}:\d{2}$/.test(String(ac.time)))errors.push('ساعت اعضا باید به شکل 22:00 باشد (عدد لاتین).');
+    if(!ac.mode&&!ac.time)errors.push('«ساعت خودش را داشته باشد» روشن است ولی نه دوره‌ای و نه ساعتی نوشته‌ای.');
+    if(ac.mode==='interval'&&!(Number(ac.intervalHours)>=1))errors.push('برای «هر چند ساعت یک‌بار» عددی بین ۱ تا ۱۶۸ لازم است.');
+    if(ac.mode&&ac.mode!=='interval'&&!String(ac.time||'').trim())errors.push((ac.mode==='weekly'?'برای هفتگی':ac.mode==='monthly'?'برای ماهانه':'برای روزانه')+' بودنِ اعضا یک ساعت لازم است (مثلاً 22:00) — بدون ساعت، همان زمان کلی استفاده می‌شود.');
+    if(!st.structures.academy)warnings.push('زمان‌بندی مستقل اعضا روشن است ولی ساختار «پنل اعضا» خاموش است — بی‌اثر می‌ماند.');
+  }
   if(!(st.destinations||[]).some(d=>d.on))errors.push('بدون مقصد فعال، نسخه فقط روی دیسک runner می‌ماند و از بین می‌رود.');
   const mails=(st.emails&&st.emails.list)||[];
   if(mails.some(m=>!/^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/.test(m)))errors.push('یک نشانی ایمیل معتبر نیست.');
@@ -794,7 +803,8 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
      '<div class="sh-bk-stat '+(ok?'good':part?'warn':'bad')+'"><div><b>'+(ok?'✓ موفق':part?'⚠ ناقص':'✕ ناموفق')+'</b><small>'+(bst.lastRunFa?'آخرین اجرا: '+E(bst.lastRunFa)+(bst.trigger?' — '+E(bst.trigger):''):'هنوز اجرا ثبت نشده')+'</small></div>'+
      '<div class="sh-bk-stat-rows"><span>بخش‌ها: '+E((bst.ran||[]).join('، ')||'—')+'</span><span>حجم: '+F(bst.totalKB)+'KB در '+F(bst.files)+' فایل</span>'+
       '<span>مقصدها: '+E(Object.keys(bst.destinations||{}).join('، ')||'—')+'</span>'+(bst.tookSec?'<span>زمان: '+F(bst.tookSec)+' ثانیه</span>':'')+
-      (bst.nextDue?'<span>اجرای بعدی: '+E(bst.nextDue)+'</span>':'')+'</div>'+
+      (bst.nextDue?'<span>اجرای بعدی: '+E(bst.nextDue)+'</span>':'')+
+      (bst.nextDueByKind&&bst.nextDueByKind.academy?'<span>اجرای بعدی اعضا: '+E(bst.nextDueByKind.academy)+'</span>':'')+'</div>'+
      ((bst.errors&&bst.errors.length)?'<div class="sh-form-error">خطاها: '+E(bst.errors.join('؛ '))+'</div>':'')+
      ((bst.warnings&&bst.warnings.length)?'<div class="sh-alert">'+E(bst.warnings.join(' | '))+'</div>':'')+'</div>'
      :'<div class="sh-bk-stat"><div><b>هنوز نسخه‌ای گرفته نشده</b><small>با دکمهٔ «بکاپ فوری» همین حالا یکی بگیرید</small></div></div>')+'</div></section>'+
@@ -805,7 +815,15 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
     '<div class="sh-field" data-bk-time><label>ساعت اجرا</label><input class="sh-input" type="time" name="time" value="'+E(st.time||'04:00')+'"></div>'+
     '<div class="sh-field" data-bk-int><label>فاصله (ساعت)</label><input class="sh-input" type="number" name="intervalHours" min="1" max="168" value="'+E(st.intervalHours||6)+'"></div>'+
     select('روز هفته','weekday',BK2_WEEK.map((x,i)=>[i,x]),st.weekday,'data-bk-week')+
-    field('روز ماه (۱ تا ۲۸)','monthDay',st.monthDay,'number','min="1" max="28" data-bk-md')+'</form></section>'+
+    field('روز ماه (۱ تا ۲۸)','monthDay',st.monthDay,'number','min="1" max="28" data-bk-md')+
+    '<hr class="sh-sep" style="margin:6px 0 2px"><label class="sh-checkbox"><input type="checkbox" name="academyOn" '+((st.academySchedule&&st.academySchedule.on)?'checked':'')+'> <b>پنل اعضا (آکادمی) ساعت خودش را داشته باشد</b> — اگر خاموش باشد مثل امروز هم‌زمان با سایت+فروشگاه نسخه می‌گیرد</label>'+
+    '<div data-acad-box style="'+(st.academySchedule&&st.academySchedule.on?'':'display:none')+'">'+
+      '<div class="sh-form-grid">'+
+      select('دورهٔ اجرا برای اعضا','academyMode',[['','همان عمومی'],['daily','روزانه در ساعت معین'],['interval','هر چند ساعت یک‌بار'],['weekly','هفتگی در یک روز'],['monthly','ماهانه در یک روز']],(st.academySchedule||{}).mode||'')+
+      '<div class="sh-field" data-acad-time><label>ساعت اعضا</label><input class="sh-input" type="time" name="academyTime" value="'+E((st.academySchedule||{}).time||'22:00')+'"></div>'+
+      '<div class="sh-field" data-acad-int><label>فاصله (ساعت)</label><input class="sh-input" type="number" name="academyIntervalHours" min="1" max="168" value="'+E((st.academySchedule||{}).intervalHours||6)+'"></div>'+
+      '<p class="sh-note">هر فیلدی را خالی بگذار، از زمان‌بندی عمومی می‌آید. روز هفته و روز ماه برای اعضا همان مقادیر عمومی است.</p>'+
+      '</div></div>'+'</form></section>'+
    '<section class="sh-card"><h2>چه چیزی و در چه قالبی</h2><form data-bk-what class="sh-form-grid">'+
     '<label class="sh-checkbox"><input type="checkbox" name="siteShop" '+(st.structures.siteShop?'checked':'')+'> <b>سایت + فروشگاه</b> — محتوا، کالاها، سفارش‌ها، حسابداری</label>'+
     '<label class="sh-checkbox"><input type="checkbox" name="academy" '+(st.structures.academy?'checked':'')+'> <b>پنل اعضا (آکادمی)</b> — بازیکنان، نتایج، زمین‌ها و عکس‌ها</label>'+
@@ -845,7 +863,12 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
     el.querySelector('[data-bk-time]').style.display=(m==='interval')?'none':'';
     el.querySelector('[data-bk-int]').style.display=(m==='interval')?'':'none';
     el.querySelector('[data-bk-week]').closest('.sh-field').style.display=(m==='weekly')?'':'none';
-    el.querySelector('[data-bk-md]').closest('.sh-field').style.display=(m==='monthly')?'':'none';};
+    el.querySelector('[data-bk-md]').closest('.sh-field').style.display=(m==='monthly')?'':'none';
+    const aOn=f.elements.academyOn,box=el.querySelector('[data-acad-box]');
+    if(aOn&&box){box.style.display=aOn.checked?'':'none';
+      const am=f.elements.academyMode.value;
+      el.querySelector('[data-acad-time]').style.display=(am==='interval')?'none':'';
+      el.querySelector('[data-acad-int]').style.display=(am==='interval')?'':'none';}};
    f.onchange=syncMode;f.oninput=syncMode;syncMode();
   }
   function collect(){
@@ -854,6 +877,10 @@ window.SHOP_OPS_CSS="/* Golf retail operations. Scoped to the private store work
    st.enabled=s.elements.enabled.checked;st.mode=s.elements.mode.value;
    st.time=(s.elements.time.value||'04:00').padStart(5,'0');
    st.intervalHours=num(s,'intervalHours',1,168,6);st.weekday=num(s,'weekday',0,6,6);st.monthDay=num(s,'monthDay',1,28,1);
+   const aOn=!!(s.elements.academyOn&&s.elements.academyOn.checked);
+   st.academySchedule=aOn?{on:true,mode:s.elements.academyMode.value||'',
+     time:String(s.elements.academyTime.value||'').trim(),
+     intervalHours:s.elements.academyMode.value==='interval'?num(s,'academyIntervalHours',1,168,0):0}:{on:false};
    st.structures={siteShop:w.elements.siteShop.checked,academy:w.elements.academy.checked};
    st.destinations=(st.destinations||[]).map(d=>({...d,config:bk2DestCfg(d.type,d.config)}));
    st.format=w.elements.format.value;st.compress=w.elements.compress.checked;
