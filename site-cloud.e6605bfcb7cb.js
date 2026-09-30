@@ -345,11 +345,12 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
   async function erp(action,payload={}){
     const access=await accessToken();
     if(!access)throw error('برای دیدن فضای فروشگاه باید وارد حساب مدیر شوید.',401,'WEB_AUTH_REQUIRED');
-    const res=await request(C.url.replace(/\/+$/,'')+'/functions/v1/web-erp',{method:'POST',
+    /* request() is this layer's own helper: it already reads the text, parses it and throws an
+       error carrying the status — it does not hand back a Response. */
+    const data=await request(C.url.replace(/\/+$/,'')+'/functions/v1/web-erp',{method:'POST',
       headers:{'Content-Type':'application/json',apikey:C.key,Authorization:'Bearer '+access},
       body:JSON.stringify({action,...payload})});
-    const data=await res.json().catch(()=>null);
-    if(!res.ok||!data||data.ok!==true)throw error(String((data&&data.error)||'فضای فروشگاه پاسخ نداد.'),res.status||502,'WEB_ERP');
+    if(!data||data.ok!==true)throw error(String((data&&data.error)||'فضای فروشگاه پاسخ نداد.'),502,'WEB_ERP');
     return data.data;
   }
 
