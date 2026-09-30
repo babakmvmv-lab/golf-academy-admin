@@ -1,8 +1,6 @@
 (function () {
-  /* پنل اعضا به زیردامنهٔ اختصاصی منتقل شد (panel.puttclub.ir).
-     نشانی http تا زمان صدور گواهی HTTPS زیردامنه است؛ پس از فعال‌شدن اجبار HTTPS،
-     سرور خودکار به نسخهٔ امن ارتقا می‌دهد. */
-  var PANEL = "http://panel.puttclub.ir";
+  /* پنل اعضا به زیردامنهٔ اختصاصی منتقل شد (panel.puttclub.ir — HTTPS فعال است). */
+  var PANEL = "https://panel.puttclub.ir";
   function isAcademyPath(href) {
     if (!href) return false;
     try {
