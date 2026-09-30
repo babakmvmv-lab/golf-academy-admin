@@ -73,6 +73,15 @@ jobs:
                   new=re.sub(r'pc-[0-9a-f]{12}-'+re.escape(original),renamed,new)
                   new=re.sub(r'(?<![-\w])'+re.escape(original),renamed,new)
               if new!=s: p.write_text(new,encoding='utf-8'); print(f'{page}: refreshed asset names')
+              if page=='index.html':
+                  # this host has to be able to sign you back in on its own: shop-ops only reads an
+                  # existing session, and the widget that used to offer the form is hidden on that screen
+                  if '<!-- admin-login-guard -->' not in new:
+                      new=new.replace('</body>',
+                        '  <!-- admin-login-guard -->\n  <script>(function(){try{var C=window.PC_SITE_CLOUD;'
+                        'var s=C&&C.authSession&&C.authSession();if(!(s&&s.access_token))location.replace(\'/login.html\');'
+                        '}catch(e){}})();</script>\n</body>',1)
+                      p.write_text(new,encoding='utf-8'); print('index.html: login guard injected')
           # one-line notices for the old paths, so a bookmark never dies on a 404
           for legacy in ('admin', 'admin/site', 'admin/login'):
               d=root/legacy
