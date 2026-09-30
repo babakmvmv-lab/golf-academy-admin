@@ -1,40 +1,39 @@
-# admin.puttclub.ir — پنل عملیاتی سایت و فروشگاه
+# admin.puttclub.ir — پنل مدیریت پات‌کلاب
 
-**تنها مسیر ورود به پنل مدیریت.** این هاست فقط پنل اُپس را سرو می‌کند؛ دیگر آینهٔ سایت عمومی نیست.
+**یک پوستهٔ مدیریتی، دو بخش:** «مدیریت سایت» و «مدیریت فروشگاه». این هاست پوستهٔ عمومی puttclub.ir را نمایش نمی‌دهد.
 
-- `https://admin.puttclub.ir/` → خودِ پنل (بدون پسوند `/admin/site/`)
-- `https://admin.puttclub.ir/login.html` → ورود مدیران (اگر جلسه‌ات تمام شده باشد)
-- `admin/…` و `404.html` → فقط صفحه‌های یک‌خطیِ «جابه‌جا شد» برای بوک‌مارک‌های قدیمی
-- `robots.txt` → `Disallow: /` (این هاست ایندکس نمی‌شود)
+- `https://admin.puttclub.ir/admin/` → پنل اصلی با همان دو بخش
+- `https://admin.puttclub.ir/` → ارجاع به پنل اصلی (`/?shop=1` قدیمی به بخش فروشگاه می‌رود)
+- `https://admin.puttclub.ir/login.html` → ورود مدیران با حساب Supabase Auth
+- سند `admin/site/index.html` فقط داخل پنل، در قاب «مدیریت سایت» باز می‌شود تا مسیر واقعی Next.js (`/admin/site/`) حفظ شود؛ مراجعهٔ مستقیم به آن دوباره به پوستهٔ اصلی برمی‌گردد.
+- مسیرهای قدیمی `/site/`, `/shop/` و `/admin/login/` تنها ارجاع سازگاری‌اند؛ صفحهٔ دوم یا پوستهٔ عمومی سایت کپی نمی‌شود.
+- `robots.txt` → `Disallow: /` (این هاست ایندکس نمی‌شود).
 
 ## ورود
 
 همان حساب Supabase Auth که قبلاً استفاده می‌کردی (`app_metadata.web_admin = true`، یا `web_shop_staff`
-برای حساب‌های فقط-فروشگاه). جلسه در `localStorage` کلید `puttclub_web_auth_v1` نگه داشته می‌شود و
-پنل از همان‌جا می‌خواند؛ به همین دلیل `login.html` چیز جدیدی نمی‌سازد، فقط همان
-`PC_SITE_CLOUD.signInAdmin(...)` را صدا می‌زند.
+برای حساب‌های فقط-فروشگاه). جلسه در `localStorage` با کلید `puttclub_web_auth_v1` نگه داشته می‌شود و
+پنل از همان‌جا می‌خواند؛ `login.html` همان `PC_SITE_CLOUD.signInAdmin(...)` را صدا می‌زند.
 
 ## داده
 
-از همان ابر مشترک (Supabase) می‌آید؛ همهٔ فراخوانی‌های `/api/*` در خود مرورگر به Supabase ترجمه
+از همان ابر مشترک (Supabase) می‌آید؛ همهٔ فراخوانی‌های `/api/*` در مرورگر به Supabase ترجمه
 می‌شوند، پس مستقل از دامنه کار می‌کنند. CORS پروژه روی `https://admin.puttclub.ir` تست شده است.
 
-## publishes = فایل‌های این ریپو + گردش‌کار
+## انتشار
 
-`source/build_public_cloud.py` در ریپوی `golf-academy-pro` فایل‌های هش‌دار را می‌سازد؛ گردش‌کار
-«Publish the ops panel on this host» آن‌ها را این‌جا می‌گذارد:
+گردش‌کار «Publish the ops panel on this host» فایل‌های هش‌دار را از `golf-academy-pro` تازه می‌کند، اما
+پوستهٔ این هاست را بازنویسی نمی‌کند:
 
-1. `index.html` (پوستهٔ پنل) از `admin/site/` ریپوی اصلی — اگر روزی از آن ریپو حذف شد، همین فایلِ
-   ترک‌شدهٔ این ریپو استفاده می‌شود؛
-2. `_next/`, `images/`, `data/`, `favicon.ico`, `enter-academy.js`, `site-cloud.*.js`, `shop-ops.*.js`
-   و `public-cloud-manifest.json`؛
-3. نام فایل‌های هش‌دار (bootstrap و چانک‌های `pc-*`) داخل `index.html` و `login.html` بازنویسی
-   می‌شود، پس تغییر نام در ریپوی اصلی این هاست را نمی‌شکند؛
-4. اگر ارجاع شکسته‌ای وجود داشته باشد یا bootstrap/shop-ops پیدا نشود، **ران فیلد می‌شود** و
-   نسخهٔ قبلی سر جایش می‌ماند (به‌جای انتشار یک پنل نصفه‌نیمه).
+1. `admin/index.html` = پوستهٔ مدیریتیِ موبایل‌پسند با دو تب؛ بخش فروشگاه، `SHOP_OPS.mount()` فعلی را بارگذاری می‌کند؛
+2. `admin/site/index.html` = خروجیِ واقعی مدیریت سایت، با همان مسیر `/admin/site/` که بستهٔ Next.js انتظار دارد؛
+3. `index.html` فقط ورودی را به `/admin/` می‌فرستد؛ `login.html` دو مقصدِ همین پوسته را ارائه می‌کند؛
+4. `_next/`, `images/`, `data/`, `favicon.ico`, `enter-academy.js`, `site-cloud.*.js`, `shop-ops.*.js`
+   و `public-cloud-manifest.json` تازه می‌شوند؛ نام bootstrap و chunkها در هر سه سند پنل/ورود بازنویسی می‌شود؛
+5. `tools/cine.py` پس‌زمینه را فقط به پوسته و صفحهٔ ورود تزریق می‌کند؛ گردش‌کار ارجاع شکسته، مسیر گم‌شده، یا پنل ناقص را رد می‌کند.
 
 صفحه‌های عمومی سایت (`shop/`, `checkout/`, `product/`, `academy/`, `login/`, `panel/`) عمداً اینجا
-کپی **نمی‌شوند** — آن‌ها فقط روی `puttclub.ir` هستند.
+کپی نمی‌شوند — آن‌ها فقط روی `puttclub.ir` هستند.
 
 - DNS: رکورد CNAME با نام `admin` و مقصد `babakmvmv-lab.github.io` (مدیریت در deSEC).
 - زمان‌بندی: کرون `23 3 * * *` + `workflow_dispatch`.

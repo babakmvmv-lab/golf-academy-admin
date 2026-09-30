@@ -54,7 +54,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
 </head>
 <body>
 <main>
-  <div class="brand"><span>⛳</span><b>پنل عملیات پات‌کلاب</b></div>
+  <div class="brand"><span>⛳</span><b>پنل مدیریت پات‌کلاب</b></div>
   <h1>ورود مدیران</h1>
   <p class="sub">فقط حساب‌هایی که در Supabase Auth مجوز <code>web_admin</code> یا <code>web_shop_staff</code>
      دارند وارد می‌شوند. رمز این صفحه، <b>رمز همان حساب Supabase</b> است — نه رمز پنل اعضا و نه رمز دمو.</p>
@@ -67,8 +67,8 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
   .dest button.on{background:#c9a24b;color:#04120c;box-shadow:0 2px 10px #c9a24b33}
   </style>
   <div class="dest" role="group" aria-label="بعد از ورود کدام بخش باز شود؟">
-    <button type="button" data-dest="/">🌐 صفحه و پوستر سایت</button>
-    <button type="button" data-dest="/?shop=1">🛍 فضای فروشگاه</button>
+    <button type="button" data-dest="/admin/?section=site">🌐 مدیریت سایت</button>
+    <button type="button" data-dest="/admin/?section=store">🛍 مدیریت فروشگاه</button>
   </div>
   <form id="f" autocomplete="on">
     <p class="err" id="e" role="alert" aria-live="polite"></p>
@@ -101,7 +101,7 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
   </details>
   <p class="diag" id="diag"></p>
   <div class="foot">
-    <a href="/?loggedout=1" id="out">پاک کردن جلسهٔ این مرورگر</a>
+    <a href="/login.html?loggedout=1" id="out">پاک کردن جلسهٔ این مرورگر</a>
     <a href="https://puttclub.ir/">سایت</a>
   </div>
 </main>
@@ -144,31 +144,31 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
       +' · پاسخ: '+(((x&&x.serverMessage)||'—'))+' · تلاش: '+(tries?'۱':'۰');
     try{diag.textContent+=' · نشست: '+(localStorage.getItem('puttclub_web_auth_v1')?'داریم':'نداریم');}catch(y){}
   }
-  /* The old admin card offered two destinations; a sign-in page that can only send you to one of them
-     is exactly how «نمی‌تونم وارد فضای فروشگاه بشم» gets reported. ?next= is whitelisted, never used raw. */
-  // two destinations, one page each: / is the shop workspace, /site/ is the website admin. Every
-  // value ever written into ?next= (including the paths these two used to live at) maps onto one of
-  // them — a path that is not on this list is dropped, never followed, so this form cannot be turned
-  // into an open redirect.
+  /* The panel has one shell and exactly two sections. Legacy paths stay accepted, but they all land
+     on that shell — ?section=site and ?section=store only select its active view. */
   var NEXTS={
-    '/':'/', '':'/','/login.html':'/','/index.html':'/','/index':'/',
-    '/site':'/','/site/':'/','/admin/site':'/','/admin/site/':'/',
-    '/?shop=1':'/?shop=1','/shop':'/?shop=1','/shop/':'/?shop=1','/admin':'/?shop=1',
-    '/admin/':'/?shop=1','/admin/?shop=1':'/?shop=1','/?shop=1&x=1':'/?shop=1'
+    '':'/admin/?section=site','/':'/admin/','/login.html':'/admin/','/index.html':'/admin/','/index':'/admin/',
+    '/admin':'/admin/','/admin/':'/admin/','/admin/?section=site':'/admin/?section=site',
+    '/admin/?section=store':'/admin/?section=store','/admin/site':'/admin/?section=site',
+    '/admin/site/':'/admin/?section=site','/site':'/admin/?section=site','/site/':'/admin/?section=site',
+    '/?shop=1':'/admin/?section=store','/shop':'/admin/?section=store','/shop/':'/admin/?section=store',
+    '/admin?shop=1':'/admin/?section=store','/admin/?shop=1':'/admin/?section=store',
+    '/?shop=1&x=1':'/admin/?section=store'
   };
-  function resolve(want){return NEXTS.hasOwnProperty(want)?NEXTS[want]:'/';}
+  function resolve(want){return Object.prototype.hasOwnProperty.call(NEXTS,want)?NEXTS[want]:'/admin/';}
   var target=(function(){
-    var m=location.search.match(/[?&]next=([^&]+)/);
-    return resolve(m?decodeURIComponent(m[1]):'');
+    var m=location.search.match(/[?&]next=([^&]+)/), raw='';
+    try{raw=m?decodeURIComponent(m[1]):'';}catch(e){}
+    return resolve(raw);
   })();
-  function next_(){return target||'/';}
+  function next_(){return target||'/admin/';}
   function paintDest(){[].forEach.call(document.querySelectorAll('[data-dest]'),function(b){b.classList.toggle('on',b.dataset.dest===target);});}
   [].forEach.call(document.querySelectorAll('[data-dest]'),function(b){b.onclick=function(){
     target=b.dataset.dest;paintDest();
     try{sessionStorage.setItem('ga_admin_dest',target);}catch(x){}
-    history.replaceState({},'',target==='/'?'/login.html':'/login.html?next='+encodeURIComponent(target));
+    history.replaceState({},'','/login.html?next='+encodeURIComponent(target));
   };});
-  try{if(!/[?&]next=/.test(location.search)){var saved=sessionStorage.getItem('ga_admin_dest');if(saved&&NEXTS.hasOwnProperty(saved))target=NEXTS[saved];}}catch(x){}
+  try{if(!/[?&]next=/.test(location.search)){var saved=sessionStorage.getItem('ga_admin_dest');if(saved&&Object.prototype.hasOwnProperty.call(NEXTS,saved))target=NEXTS[saved];}}catch(x){}
   paintDest();
   function go(){
     if(!ready()){note('لایهٔ ابری بارگذاری نشد؛ صفحه را تازه‌سازی کن.');return;}
@@ -236,7 +236,6 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();
 })();
 </script>
-
 
 
 
