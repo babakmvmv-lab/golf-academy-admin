@@ -83,16 +83,19 @@ jobs:
                         '}catch(e){}})();</script>\n</body>',1)
                       p.write_text(new,encoding='utf-8'); print('index.html: login guard injected')
 
-          # one-line notices for the old paths, so a bookmark never dies on a 404
-          for legacy in ('admin', 'admin/site', 'admin/login'):
+          # One-line notices for the old paths, so a bookmark never dies on a 404 — and /admin is not
+          # only a bookmark: the exported admin card still links «پنل فروشگاه» to /admin. On this host the
+          # shop workspace is a mode of the panel page (?shop=1), so that path must resolve to the MODE,
+          # not to the root, or the shop becomes unreachable by construction.
+          for legacy, where in (('admin', '/?shop=1'), ('admin/site', '/'), ('admin/login', '/')):
               d=root/legacy
               d.mkdir(parents=True,exist_ok=True)
               (d/'index.html').write_text(
                 '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
                 '<meta name="robots" content="noindex"><title>پنل مدیریت جابه‌جا شد</title>'
-                '<meta http-equiv="refresh" content="0; url=/"></head>'
-                '<body><p>پنل مدیریت به ریشهٔ همین دامنه منتقل شد — در حال بازکردن… '
-                '<a href="/">ورود به پنل</a></p><script>location.replace("/");</script></body></html>\n',encoding='utf-8')
+                f'<meta http-equiv="refresh" content="0; url={where}"></head>'
+                f'<body><p>این مسیر جابه‌جا شد — در حال بازکردن… <a href="{where}">ادامه</a></p>'
+                f'<script>location.replace("{where}");</script></body></html>\n',encoding='utf-8')
           # the public pages of the main site are not this host's job
           (root/'404.html').write_text(
             '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
