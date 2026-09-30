@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ورود مدیران — پات کلاب</title>
+<!-- Own sign-in page for this origin. The shop-ops screen only reads an existing Supabase session
+     (it just throws "ابتدا با حساب ابری خود وارد شوید" otherwise), and the old sign-in form lived in a
+     Next.js page under /admin/login on the public domain — which no longer exists here. This page uses
+     the very same exported PC_SITE_CLOUD.signInAdmin, so the session lands in the same localStorage key
+     (puttclub_web_auth_v1) that shop-ops reads. Bootstrap name below is refreshed by .github/workflows/sync.yml -->
+<script src="/site-cloud.6424a6071063.js"></script>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a1712;color:#f2ecdd;
+ font:15px/1.9 Vazirmatn,"Vazirmatn FD",Tahoma,system-ui,sans-serif;padding:22px}
+form{width:min(420px,100%);border:1px solid #c9a24b66;border-radius:18px;padding:26px;background:#0d1c16}
+h1{margin:0 0 4px;font-size:20px}
+p.sub{margin:0 0 20px;color:#a9bcae;font-size:13px}
+label{display:block;font-size:13px;color:#c9a24b;margin:0 0 6px}
+input{width:100%;padding:11px 13px;border-radius:12px;border:1px solid #2b4437;background:#0a1712;color:#f2ecdd;
+ font:inherit;margin:0 0 14px}
+input:focus{outline:none;border-color:#c9a24b}
+button{width:100%;padding:12px;border:0;border-radius:12px;background:#c9a24b;color:#0a1712;font:inherit;
+ font-weight:700;cursor:pointer}
+button[disabled]{opacity:.6;cursor:progress}
+.err{display:none;background:#3a1414;border:1px solid #b3413f66;color:#ffd9d7;border-radius:12px;
+ padding:10px 12px;font-size:13px;margin:0 0 14px}
+.err.on{display:block}
+.foot{display:flex;justify-content:space-between;gap:10px;margin-top:16px;font-size:12px;color:#a9bcae}
+a{color:#c9a24b;text-decoration:none}
+</style>
+</head>
+<body>
+<form id="f" autocomplete="on">
+  <h1>ورود مدیران</h1>
+  <p class="sub">فقط حساب‌هایی که در Supabase Auth مجوز <code>web_admin</code> یا <code>web_shop_staff</code> دارند وارد می‌شوند.</p>
+  <p class="err" id="e"></p>
+  <label for="u">ایمیل</label>
+  <input id="u" name="email" type="email" inputmode="email" autocomplete="username" required placeholder="admin@puttclub.ir">
+  <label for="p">رمز عبور</label>
+  <input id="p" name="password" type="password" autocomplete="current-password" required>
+  <button id="b" type="submit">ورود به پنل</button>
+  <div class="foot"><a href="/?loggedout=1" id="out">پاک کردن جلسهٔ این مرورگر</a><a href="https://puttclub.ir/">سایت</a></div>
+</form>
+<script>
+(function(){
+  var f=document.getElementById('f'),e=document.getElementById('e'),b=document.getElementById('b'),
+      u=document.getElementById('u'),p=document.getElementById('p');
+  function fail(m){e.textContent=m||'ورود انجام نشد.';e.classList.add('on');b.disabled=false;b.textContent='ورود به پنل';}
+  function ready(){return window.PC_SITE_CLOUD&&window.PC_SITE_CLOUD.signInAdmin;}
+  function go(){
+    if(!ready())return fail('لایهٔ ابری بارگذاری نشد؛ صفحه را تازه‌سازی کن.');
+    if(location.search.indexOf('loggedout=1')>=0){
+      try{window.PC_SITE_CLOUD.signOut();}catch(x){}
+      try{localStorage.removeItem('puttclub_admin');}catch(x){}
+      history.replaceState({},'',location.pathname);
+    }
+    try{var s=window.PC_SITE_CLOUD.authSession&&window.PC_SITE_CLOUD.authSession();
+      if(s&&s.access_token){location.replace('/');return;}
+    }catch(x){}
+  }
+  f.addEventListener('submit',function(ev){
+    ev.preventDefault();e.classList.remove('on');b.disabled=true;b.textContent='در حال بررسی…';
+    // two frames: the bootstrap lazy-mounts itself; a cold cache can beat the submit handler
+    setTimeout(function(){
+      if(!ready())return fail('لایهٔ ابری بارگذاری نشد؛ صفحه را تازه‌سازی کن.');
+      window.PC_SITE_CLOUD.signInAdmin(u.value.trim(),p.value).then(function(){
+        location.replace('/');
+      }).catch(function(x){
+        fail((x&&x.message)||'نام کاربری یا رمز اشتباه است.');
+      });
+    },30);
+  });
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',go);else go();
+})();
+</script>
+</body>
+</html>

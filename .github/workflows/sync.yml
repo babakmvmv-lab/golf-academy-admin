@@ -1,4 +1,4 @@
-name: Mirror site from main repo
+name: Publish the ops panel on this host
 on:
   schedule:
     - cron: '23 3 * * *'
@@ -10,31 +10,113 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Mirror the site (admin panel included)
+
+      - name: Publish (panel at the root of this host)
         run: |
           set -e
           git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
-          # NOTE: .git must survive — it was deleted here once and every later step failed with
-          # "fatal: not in a git directory", so the mirror silently stopped publishing for weeks.
-          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' -exec rm -rf {} +
+
+          # This host is the operations panel only — it must not keep a second copy of the public
+          # storefront pages (shop/checkout/product/academy/login/panel). Everything that is not the
+          # panel, the CNAME or this repo's own files gets rebuilt from the main repo each run.
+          # .git must survive: when it was deleted here once, every later step died with
+          # "fatal: not in a git directory" and the mirror silently served a stale panel for weeks.
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' \
+            ! -name 'index.html' ! -name 'login.html' ! -name '404.html' \
+            -exec rm -rf {} +
           touch .nojekyll
-          for item in 404.html 404 _not-found _next academy admin checkout data images login panel product shop videos favicon.ico enter-academy.js MIS-Golf __next.__PAGE__.txt __next._full.txt __next._head.txt __next._index.txt __next._tree.txt; do
+
+          # Panel shell + everything it loads by absolute path.
+          if [ -f /tmp/main/admin/site/index.html ]; then
+            cp -r /tmp/main/admin/site/. .
+          else
+            echo "admin/site/ is gone from the main repo — keeping this repo's own shell and refreshing only the assets."
+          fi
+          for item in _next images data favicon.ico enter-academy.js; do
             [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
           done
           cp /tmp/main/site-cloud.*.js . 2>/dev/null || true
           cp /tmp/main/shop-ops.*.js . 2>/dev/null || true
-          # Refuse to publish an empty shell: if the source layout changed, fail the run instead of
-          # pushing a commit that deletes the admin panel.
-          test -f admin/site/index.html || { echo '::error=admin/site/index.html missing in golf-academy-pro — refusing to publish'; exit 1; }
-          ls site-cloud.*.js >/dev/null || { echo '::error=no site-cloud bootstrap in golf-academy-pro — refusing to publish'; exit 1; }
-          cat > index.html <<'HTML'
-          <!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>پنل مدیریت — پات کلاب</title><meta http-equiv="refresh" content="0; url=/admin/site/"></head><body><script>location.replace('/admin/site/');</script></body></html>
-          HTML
-          # This host is a private operations surface, not a second public copy of the site.
-          printf 'User-agent: *\nDisallow: /\n' > robots.txt
+          cp /tmp/main/source/public-cloud-manifest.json . 2>/dev/null || true
+
+          # Point both hand-written pages at whatever the current hashed bootstrap is, so the shell
+          # keeps working after the main repo stops carrying admin/.
+          python3 - <<'PY'
+          import json,glob,pathlib,re
+          root=pathlib.Path('.')
+          man={}
+          if (root/'public-cloud-manifest.json').exists():
+              man=json.loads((root/'public-cloud-manifest.json').read_text())
+          boot=man.get('bootstrap') or ''
+          shop=man.get('shopOpsAsset') or ''
+          index=root/'index.html'
+          # fall back to what the shell already asks for, if the manifest is missing
+          if not boot and index.exists():
+              m=re.search(r'site-cloud\.[0-9a-f]+\.js',index.read_text(encoding='utf-8'))
+              boot=m.group(0) if m else ''
+          if not boot:
+              hits=sorted(p.name for p in root.glob('site-cloud.*.js'))
+              boot=hits[-1] if hits else ''
+          if not shop:
+              hits=sorted(p.name for p in root.glob('shop-ops.*.js'))
+              shop=hits[-1] if hits else ''
+          if not boot or not shop: raise SystemExit('nothing to point the shell at (no bootstrap/shop-ops assets)')
+          for page in ('index.html','login.html'):
+              p=root/page
+              if not p.exists(): continue
+              s=p.read_text(encoding='utf-8')
+              new=re.sub(r'site-cloud\.[0-9a-f]+\.js',boot,s)
+              # the main repo renames every adapted chunk per build; follow it so the shell never
+              # points at a pc-* file that no longer exists on this host
+              for original,renamed in (man.get('chunks') or {}).items():
+                  new=re.sub(r'pc-[0-9a-f]{12}-'+re.escape(original),renamed,new)
+                  new=re.sub(r'(?<![-\w])'+re.escape(original),renamed,new)
+              if new!=s: p.write_text(new,encoding='utf-8'); print(f'{page}: refreshed asset names')
+          # one-line notices for the old paths, so a bookmark never dies on a 404
+          for legacy in ('admin', 'admin/site', 'admin/login'):
+              d=root/legacy
+              d.mkdir(parents=True,exist_ok=True)
+              (d/'index.html').write_text(
+                '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
+                '<meta name="robots" content="noindex"><title>پنل مدیریت جابه‌جا شد</title>'
+                '<meta http-equiv="refresh" content="0; url=/"></head>'
+                '<body><p>پنل مدیریت به ریشهٔ همین دامنه منتقل شد — در حال بازکردن… '
+                '<a href="/">ورود به پنل</a></p><script>location.replace("/");</script></body></html>\n',encoding='utf-8')
+          # the public pages of the main site are not this host's job
+          (root/'404.html').write_text(
+            '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
+            '<meta name="robots" content="noindex"><title>پات کلاب</title>'
+            '<meta http-equiv="refresh" content="0; url=https://puttclub.ir/"></head>'
+            '<body><script>location.replace("https://puttclub.ir/");</script></body></html>\n',encoding='utf-8')
+          (root/'robots.txt').write_text('User-agent: *\nDisallow: /\n',encoding='utf-8')
+          PY
+
+          # Refuse to publish a broken shell rather than lock yourself out.
+          test -f index.html || { echo '::error=no panel shell (index.html) — refusing to publish'; exit 1; }
+          test -f login.html || { echo '::error=no login.html — refusing to publish'; exit 1; }
+          BOOT=$(grep -o 'site-cloud\.[0-9a-f]*\.js' index.html | head -1)
+          test -n "$BOOT" -a -f "$BOOT" || { echo "::error=index.html points at a missing bootstrap ($BOOT)"; exit 1; }
+          grep -q "$BOOT" login.html || { echo "::error=login.html points at a different bootstrap than index.html"; exit 1; }
+          SHOP=$(grep -o 'shop-ops\.[0-9a-f]*\.js' "$BOOT" | head -1)
+          test -n "$SHOP" -a -f "$SHOP" || { echo "::error=bootstrap points at a missing shop-ops asset ($SHOP)"; exit 1; }
+          grep -q backupView2 "$SHOP" || echo "::warning::the mirrored shop-ops has no backupView2 — the backup screen may not be published yet"
+          python3 - <<'PY'
+          # every static file this host's own pages ask for must exist here, or the panel loads half
+          # a screen (that is exactly what a copy-list drift does)
+          import pathlib,re
+          bad=[]
+          for page in ('index.html','login.html'):
+              text=pathlib.Path(page).read_text(encoding='utf-8')
+              for ref in set(re.findall(r'(?:src|href)="(/[^"?#]+\.(?:js|css|ico|png|jpe?g|svg|woff2?))"',text)):
+                  if not pathlib.Path('.'+ref).exists(): bad.append(f'{page} → {ref}')
+          if bad: raise SystemExit('dangling references:\n  '+'\n  '.join(sorted(bad)))
+          print('static references: all present')
+          PY
+
       - name: Commit if changed
         run: |
           git config user.name "sync-bot"
           git config user.email "sync-bot@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet && echo "no changes" || (git commit -m "sync: mirror from golf-academy-pro" && git push)
+          git diff --cached --quiet && echo "no changes" || (git commit -m "sync: publish ops panel from golf-academy-pro" && git push)
