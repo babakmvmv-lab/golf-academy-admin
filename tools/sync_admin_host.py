@@ -43,6 +43,73 @@ NAV_ADAPTER = r'''<!-- admin-host-navigation:begin -->
 </script>
 <!-- admin-host-navigation:end -->'''
 
+# Small, host-local polish for Persian admin headers.  The public website and all page content stay
+# unchanged; this fixes the Latin display font being applied to Persian brand text and normalizes
+# the existing vector icons without replacing the original interface.
+HEADER_POLISH = r'''<!-- admin-header-polish:begin -->
+<style id="admin-header-polish">
+/* Persian header type: use the panel's bundled Vazirmatn face, with correct RTL shaping. */
+#shop-ops .sh-brand b,
+#shop-ops .sh-top h1,
+#shop-ops .sh-top-meta,
+#shop-ops .sh-nav button,
+#shop-ops .sh-side-bottom,
+body aside .text-sm.font-black,
+body aside nav button,
+body main .text-xl.font-black {
+  font-family: var(--font-vazirmatn, "Vazirmatn", Tahoma, sans-serif) !important;
+  font-feature-settings: "kern" 1, "liga" 1;
+  letter-spacing: 0 !important;
+}
+#shop-ops .sh-brand b {
+  direction: rtl !important;
+  text-align: right;
+  font-size: 17px !important;
+  font-weight: 750 !important;
+  line-height: 1.55 !important;
+}
+#shop-ops .sh-brand small { letter-spacing: 0 !important; font-size: 11px !important; }
+#shop-ops .sh-top h1 {
+  font-size: clamp(18px, 3.4vw, 22px) !important;
+  line-height: 1.55 !important;
+  font-weight: 750 !important;
+}
+#shop-ops .sh-top .sh-eyebrow { font-family: var(--font-vazirmatn, "Vazirmatn", Tahoma, sans-serif) !important; letter-spacing: .35px !important; }
+#shop-ops .sh-hamburger {
+  width: 42px !important; height: 42px !important;
+  border-radius: 12px !important;
+  border-color: #ddc07c55 !important;
+  background: #ddc07c12 !important;
+  color: #e6d39e !important;
+  box-shadow: 0 2px 8px #0002;
+}
+#shop-ops .sh-hamburger .sh-icon { width: 22px; height: 22px; background: transparent; color: inherit; }
+#shop-ops .sh-hamburger .sh-icon svg { width: 20px; height: 20px; stroke-width: 1.85 !important; }
+#shop-ops .sh-icon svg,
+body aside nav button svg,
+body aside a svg,
+body aside button svg,
+body main svg.lucide {
+  flex: 0 0 auto;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+body aside nav button svg,
+body aside a svg,
+body aside button svg { width: 18px; height: 18px; }
+body main svg.lucide { display: block; }
+@media (max-width: 760px) {
+  #shop-ops .sh-top { align-items: center !important; }
+  #shop-ops .sh-top .sh-eyebrow { font-size: 9px !important; }
+  #shop-ops .sh-top-meta { line-height: 1.7; }
+}
+</style>
+<!-- admin-header-polish:end -->'''
+
 # Keep the same login UI, but do not hide the Auth service's actual failure behind
 # "check email and password".  No credentials or raw server responses are exposed.
 AUTH_ERROR_OLD = (
@@ -140,10 +207,17 @@ def inject_navigation_adapter(boot: str) -> None:
             r"<!-- admin-host-navigation:begin -->[\s\S]*?<!-- admin-host-navigation:end -->",
             "", text,
         )
+        text = re.sub(
+            r"<!-- admin-header-polish:begin -->[\s\S]*?<!-- admin-header-polish:end -->",
+            "", text,
+        )
         tag = f'<script src="/{boot}"></script>'
         if text.count(tag) != 1:
             fail(f"expected exactly one {tag} in {rel}")
         text = text.replace(tag, tag + NAV_ADAPTER, 1)
+        if text.lower().count("</head>") != 1:
+            fail(f"expected exactly one closing head tag in {rel}")
+        text = re.sub(r"</head>", HEADER_POLISH + "</head>", text, count=1, flags=re.I)
         path.write_text(text, encoding="utf-8")
 
 
@@ -193,6 +267,10 @@ def verify(manifest: dict, boot: str) -> None:
             fail(f"{rel} does not load exactly one current cloud bootstrap")
         if "admin-host-navigation" not in text:
             fail(f"{rel} is missing the cross-host site-link adapter")
+        if text.count("<!-- admin-header-polish:begin -->") != 1:
+            fail(f"{rel} is missing the host-local header typography/icon polish")
+        if "Vazirmatn" not in text or "stroke-width: 1.8" not in text:
+            fail(f"{rel} is missing the intended Persian font or consistent icon styling")
     site = (ROOT / "admin/site/index.html").read_text(encoding="utf-8")
     if "<iframe" in site or "admin-login-guard" in site:
         fail("the site editor must stay on its own native Next route, not an iframe/redirect shell")
