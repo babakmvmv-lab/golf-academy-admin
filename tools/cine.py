@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Builds the two SVG data URIs used by cine.css (fairway contours + film grain) and checks them.
+"""Owns this host's cinematic backdrop: builds the SVG data URIs, injects the layer into the
+published pages, and verifies the pages carry the CURRENT css (not a frozen first version).
 
-  python3 tools/cine.py            # fill __FAIRWAY__ / __GRAIN__ markers in cine.css
-  python3 tools/cine.py --check    # fail if markers are left, or a URI is broken / not valid SVG
+  python3 tools/cine.py            # fill the FAIRWAY / GRAIN markers in cine.css
+  python3 tools/cine.py --check    # markers filled, every data URI parses to a whole SVG
+  python3 tools/cine.py inject     # insert-or-refresh the block in index.html + login.html
+  python3 tools/cine.py verify     # fail if a page has no block or a stale one
 
-A raw double quote inside url("…") truncates the value in the CSS parser, so every " must be
-percent-encoded — that is the one way this kind of background silently disappears.
+Why inject rather than commit the block into the pages: this workflow commits its output back into
+the repo, so an "already has it" test would freeze the very first version of the styling forever.
+Why data URIs rather than files: the layer must paint even if one asset request fails.
 """
 import pathlib
 import re
@@ -14,10 +18,13 @@ import sys
 import urllib.parse
 import xml.dom.minidom
 
-CSS = pathlib.Path(__file__).resolve().parent.parent / "cine.css"
-# Only characters that are inert inside a URL may stay literal. `#` starts the fragment (a raw one
-# truncates the SVG), `<`/`>`/quotes/spaces must be percent-encoded — a "readable" data URI here is
-# a background that silently never paints.
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+CSS = ROOT / "cine.css"
+START, END = "<!-- ga-cinematic -->", "<!-- /ga-cinematic -->"
+PAGES = ("index.html", "login.html")
+# Only characters inert inside a URL may stay literal. `#` starts the fragment (a raw one truncates
+# the SVG), and `<`/quotes/spaces must be percent-encoded — a "readable" data URI here means a
+# background that silently never paints.
 SAFE = ",-:.=[]{}()"
 
 
@@ -45,42 +52,126 @@ def grain() -> str:
 
 def uri(svg: str) -> str:
     enc = urllib.parse.quote(svg, safe=SAFE)
-    for bad in ('"', '#', '<', '>', chr(10)):
+    for bad in ('"', "#", "<", ">", "\n"):
         if bad in enc:
             raise SystemExit(f"a raw {bad!r} leaked into the data URI")
+    if urllib.parse.unquote(enc).count("<svg") != 1:
+        raise SystemExit("the SVG went out through the wrong end")
     xml.dom.minidom.parseString(urllib.parse.unquote(enc))
     return 'url("data:image/svg+xml,' + enc + '")'
 
 
-def main() -> int:
-    check = "--check" in sys.argv
+def build() -> int:
     text = CSS.read_text(encoding="utf-8")
     if "__FAIRWAY__" in text or "__GRAIN__" in text:
-        if check:
-            print("cine.css still has unfilled markers — run: python3 tools/cine.py")
-            return 1
         text = text.replace("__FAIRWAY__", uri(fairway())).replace("__GRAIN__", uri(grain()))
         CSS.write_text(text, encoding="utf-8")
         print(f"cine.css filled ({len(text)} bytes)")
-    found = re.findall(r'url\("(data:image/svg\+xml,[^"]*)"\)', text)
-    if len(found) != 2:
-        print(f"expected 2 data URIs in cine.css, found {len(found)}")
+    return 0
+
+
+def check() -> int:
+    text = CSS.read_text(encoding="utf-8")
+    if "__FAIRWAY__" in text or "__GRAIN__" in text:
+        print("cine.css still has unfilled markers — run: python3 tools/cine.py")
         return 1
-    for raw in found:
-        body = raw[len("data:image/svg+xml,"):]
-        parsed = urllib.parse.urlparse(raw)
-        if parsed.fragment:                     # a raw # would cut the payload here
-            print("data URI has a fragment — it will render as nothing:", parsed.fragment[:40])
+    vals = re.findall(r'url\("(data:image/svg\+xml,[^"]*)"\)', text)
+    if len(vals) != 2:
+        print(f"expected 2 data URIs in cine.css, found {len(vals)}")
+        return 1
+    for v in vals:
+        frag = urllib.parse.urlparse(v).fragment
+        if frag:
+            print("data URI has a fragment (raw #) — it renders as nothing:", frag[:40])
             return 1
-        svg = urllib.parse.unquote(body)
-        xml.dom.minidom.parseString(svg)        # throws if the URI was truncated
+        svg = urllib.parse.unquote(v[len("data:image/svg+xml,"):])
+        xml.dom.minidom.parseString(svg)                     # throws if truncated
         if not svg.rstrip().endswith("</svg>"):
             print("data URI is truncated:", len(svg), "chars")
             return 1
-    # the layer needs its four spans to exist anywhere this host injects it
-    print(f"ok: 2 data URIs decode to valid SVG; rules={len(re.findall(r'[{@]', text))}")
+    print(f"ok: 2 data URIs decode to whole SVGs; rules={len(re.findall(r'[{@]', text))}")
+    return 0
+
+
+def block(root: pathlib.Path | None = None) -> str:
+    css_path = (root or ROOT) / "cine.css"
+    css = css_path.read_text(encoding="utf-8") if css_path.exists() else ""
+    if not css:
+        return ""
+    return (START + "\n<style id=\"ga-cinematic\">" + css + "</style>\n"
+            '<div id="ga-cine" aria-hidden="true"><span class="ga-bloom"></span>'
+            '<span class="ga-fairway"></span><span class="ga-grain"></span><span class="ga-vign"></span></div>\n' + END)
+
+
+LEGACY = (re.escape(START) + r'\s*<style id="ga-cinematic">[\s\S]*?</style>\s*'
+          r'<div id="ga-cine"[\s\S]*?</div>')
+
+
+def strip(t: str) -> str:
+    """Remove every previous layer, published or legacy.
+
+    Published pages are committed back into this repo, so they always carry an older block; a
+    "skip if already injected" test would freeze the FIRST version of the styling forever — and a
+    block written before the end sentinel existed would otherwise be duplicated instead of replaced.
+    """
+    t = re.sub(re.escape(START) + ".*?" + re.escape(END) + "\n?", "", t, flags=re.S)
+    return re.sub(LEGACY, "", t, flags=re.S)
+
+
+def inject(root: pathlib.Path | None = None) -> int:
+    root = root or ROOT
+    blk = block(root)
+    for page in PAGES:
+        q = root / page
+        if not q.exists():
+            continue
+        t = strip(q.read_text(encoding="utf-8"))
+        if not blk:
+            new = t
+        elif "</body>" in t:
+            new = t.replace("</body>", "\n" + blk + "</body>", 1)
+        else:
+            new = t + "\n" + blk
+        if new != t or blk:
+            q.write_text(new, encoding="utf-8")
+            print(f"{page}: cinematic backdrop {'injected' if blk else 'removed'}")
+    return 0
+
+
+def verify(root: pathlib.Path | None = None) -> int:
+    root = root or ROOT
+    if not (root / "cine.css").exists():
+        print("no cine.css — nothing to verify")
+        return 0
+    css = (root / "cine.css").read_text(encoding="utf-8").strip()
+    bad = []
+    for page in PAGES:
+        q = root / page
+        if not q.exists():
+            continue
+        body = q.read_text(encoding="utf-8")
+        m = re.search(re.escape(START) + r'\s*<style id="ga-cinematic">([\s\S]*?)</style>', body)
+        if not m:
+            bad.append(f"{page}: no injected block")
+        elif m.group(1).strip() != css:
+            bad.append(f"{page}: the injected block is stale (cine.css changed)")
+        elif body.count(START) != 1 or body.count('<style id="ga-cinematic">') != 1:
+            bad.append(f"{page}: the block appears more than once")
+        elif END not in body:
+            bad.append(f"{page}: the block has no end sentinel, so it can never be refreshed")
+    if bad:
+        print("\n".join(bad))
+        return 1
+    print("cinematic backdrop: current on both pages")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    args = [a for a in sys.argv[1:] if not a.startswith("--root")]
+    mode = args[0] if args else "build"
+    root = None
+    for i, a in enumerate(sys.argv[1:]):
+        if a == "--root":
+            root = pathlib.Path(sys.argv[2 + i]).resolve()
+    fn = {"build": build, "--check": check, "check": check, "inject": inject, "verify": verify}[mode]
+    sys.exit(fn() if root is None else fn(root))

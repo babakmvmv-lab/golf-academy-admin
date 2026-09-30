@@ -83,19 +83,8 @@ jobs:
                         '}catch(e){}})();</script>\n</body>',1)
                       p.write_text(new,encoding='utf-8'); print('index.html: login guard injected')
           # the cinematic backdrop is this host's own styling; one file, both pages, no network calls
-          cine=root/'cine.css'
-          if cine.exists():
-              block=('\n<!-- ga-cinematic -->\n<style id="ga-cinematic">'+cine.read_text(encoding='utf-8')+'</style>\n'
-                    '<div id="ga-cine" aria-hidden="true"><span class="ga-bloom"></span><span class="ga-fairway"></span>'
-                    '<span class="ga-grain"></span><span class="ga-vign"></span></div>\n')
-              for page in ('index.html','login.html'):
-                  q=root/page
-                  if not q.exists() or '<!-- ga-cinematic -->' in q.read_text(encoding='utf-8'): continue
-                  t=q.read_text(encoding='utf-8')
-                  if '</body>' not in t:
-                      print(f'{page}: no </body> to inject before — skipped'); continue
-                  q.write_text(t.replace('</body>',block+'</body>',1),encoding='utf-8')
-                  print(f'{page}: cinematic backdrop injected')
+          python3 tools/cine.py --check
+          python3 tools/cine.py inject
 
           # one-line notices for the old paths, so a bookmark never dies on a 404
           for legacy in ('admin', 'admin/site', 'admin/login'):
@@ -124,10 +113,7 @@ jobs:
           grep -q "$BOOT" login.html || { echo "::error=login.html points at a different bootstrap than index.html"; exit 1; }
           SHOP=$(grep -o 'shop-ops\.[0-9a-f]*\.js' "$BOOT" | head -1)
           test -n "$SHOP" -a -f "$SHOP" || { echo "::error=bootstrap points at a missing shop-ops asset ($SHOP)"; exit 1; }
-          if [ -f cine.css ]; then
-            grep -q "ga-cinematic" index.html || { echo "::error=cine.css exists but was not injected into index.html"; exit 1; }
-            grep -q "ga-cinematic" login.html || { echo "::error=cine.css exists but was not injected into login.html"; exit 1; }
-          fi
+          python3 tools/cine.py verify
           grep -q backupView2 "$SHOP" || echo "::warning::the mirrored shop-ops has no backupView2 — the backup screen may not be published yet"
           python3 - <<'PY'
           # every static file this host's own pages ask for must exist here, or the panel loads half
