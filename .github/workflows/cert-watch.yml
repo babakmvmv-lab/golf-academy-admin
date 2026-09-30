@@ -1,0 +1,32 @@
+name: Auto-enforce HTTPS when certificate is ready
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch: {}
+permissions:
+  pages: write
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check certificate and enforce HTTPS if issued
+        run: |
+          API="https://api.github.com/repos/babakmvmv-lab/golf-academy-admin/pages"
+          AUTH="Authorization: Bearer $GITHUB_TOKEN"
+          RESP=$(curl -s -H "$AUTH" "$API")
+          echo "$RESP" | jq '{status, cname, https_enforced, https_certificate}'
+          CERT=$(echo "$RESP" | jq -r '.https_certificate.state // empty')
+          ENFORCED=$(echo "$RESP" | jq -r '.https_enforced')
+          if [ -n "$CERT" ] && [ "$ENFORCED" != "true" ]; then
+            echo "Certificate is ready — enabling HTTPS enforcement…"
+            curl -s -X PUT -H "$AUTH" -H "Content-Type: application/json" \
+                 -d '{"https_enforced":true}' "$API"
+            echo "DONE: HTTPS enforced for admin.puttclub.ir"
+          elif [ "$ENFORCED" = "true" ]; then
+            echo "Already enforced."
+          else
+            echo "Certificate still pending — waiting for DNS record (CNAME admin -> babakmvmv-lab.github.io)."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
