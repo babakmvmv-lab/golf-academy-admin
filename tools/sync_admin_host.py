@@ -359,8 +359,11 @@ def verify(manifest: dict, boot: str) -> None:
     shop = str(manifest.get("shopOpsAsset") or "")
     if not shop or not (ROOT / shop).is_file():
         fail("the current shop-ops asset is missing")
-    if "backupView2" not in (ROOT / shop).read_text(encoding="utf-8"):
-        print("::warning::current shop-ops asset does not contain backupView2")
+    shop_source = (ROOT / shop).read_text(encoding="utf-8")
+    if "backupView2" not in shop_source:
+        print("::warning::current shop-ops asset does not contain the v2 compatibility view")
+    if "backupView3" not in shop_source or "backup_download" not in shop_source:
+        fail("current shop-ops asset is missing the independent v3 backup profiles/download control")
     missing = []
     for path in (ROOT / "admin").rglob("*"):
         if not path.is_file() or path.suffix.lower() not in {".html", ".txt"}:
