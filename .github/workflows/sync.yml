@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Publish (shop workspace at the root, site CMS under /site/)
+      - name: Publish the panel (site admin at / · shop workspace at /?shop=1)
         run: |
           set -e
           git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
@@ -23,20 +23,18 @@ jobs:
           # "fatal: not in a git directory" and the mirror silently served a stale panel for weeks.
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' ! -name '.github' ! -name 'CNAME' ! -name 'README.md' \
-            ! -name 'index.html' ! -name 'login.html' ! -name 'site' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
+            ! -name 'index.html' ! -name 'login.html' ! -name '404.html' ! -name 'cine.css' ! -name 'tools' \
             -exec rm -rf {} +
           touch .nojekyll
 
-          # Panel shell + everything it loads by absolute path.
-          # The site CMS document may come back from the main repo; it lands in /site/ and NEVER in '.'
-          # — copying it onto the root is what used to bury the shop workspace here (the root is this
-          # host's own dashboard document, and a blind `cp -r …/. .` would replace it with the CMS page).
+          # This host's panel page is maintained HERE, on purpose: it is the exported site-admin shell
+          # plus this repo's own two-face switch. It must never be overwritten by whatever the main repo
+          # exports (that is how the shop workspace got buried once, and how a hand-patched page can be
+          # replaced by a bare copy) — so this step refreshes assets and refs only, and says so loudly.
           if [ -f /tmp/main/admin/site/index.html ]; then
-            mkdir -p site
-            cp -r /tmp/main/admin/site/. site/
-            echo "took the site CMS document from the main repo into /site/"
+            echo "::warning::the main repo exports admin/site again — this host keeps its own panel page; only assets were refreshed"
           else
-            echo "admin/site/ is gone from the main repo — keeping this repo's own /site/ shell and refreshing only the assets."
+            echo "main repo carries no admin/ — refreshing assets and refs on this host's own panel page."
           fi
           for item in _next images data favicon.ico enter-academy.js; do
             [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
@@ -67,7 +65,7 @@ jobs:
               hits=sorted(p.name for p in root.glob('shop-ops.*.js'))
               shop=hits[-1] if hits else ''
           if not boot or not shop: raise SystemExit('nothing to point the shell at (no bootstrap/shop-ops assets)')
-          for page in ('index.html','site/index.html','login.html'):
+          for page in ('index.html','login.html'):
               p=root/page
               if not p.exists(): continue
               s=p.read_text(encoding='utf-8')
@@ -78,25 +76,25 @@ jobs:
                   new=re.sub(r'pc-[0-9a-f]{12}-'+re.escape(original),renamed,new)
                   new=re.sub(r'(?<![-\w])'+re.escape(original),renamed,new)
               if new!=s: p.write_text(new,encoding='utf-8'); print(f'{page}: refreshed asset names')
-              if page in ('index.html','site/index.html'):
-                  # both panel documents have to be able to sign you back in on their own: shop-ops only
-                  # reads an existing session, and the widget that used to offer the form is hidden there.
-                  # The block is STRIPPED and rewritten every run — these pages are committed back into the
-                  # repo, so "keep it if present" freezes the first version forever (that is how a /site/
-                  # visitor ended up sent to '/' after signing in: an old guard with no next= was kept).
+              if page=='index.html':
+                  # this page has to be able to sign you back in on its own (shop-ops only reads an existing
+                  # session). One rule for BOTH faces, and it carries the current path+query: an expired
+                  # session in the shop mode must come back to the shop mode, not to the site admin.
+                  # Stripped and rewritten every run — "keep it if present" freezes the first version,
+                  # because published pages are committed back into this repo.
                   new=re.sub(r'\s*<!-- admin-login-guard -->.*?</script>','',new,flags=re.S)
-                  nxt = '%2F' if page=='index.html' else '%2Fsite%2F'
                   new=new.replace('</body>',
                     '  <!-- admin-login-guard -->\n  <script>(function(){try{var C=window.PC_SITE_CLOUD;'
-                    'var s=C&&C.authSession&&C.authSession();if(!(s&&s.access_token))location.replace(\'/login.html?next='
-                    + nxt + '\');}catch(e){}})();</script>\n</body>',1)
-                  p.write_text(new,encoding='utf-8'); print(page+': login guard rewritten (next=' + nxt + ')')
-
-          # One-line notices, so nothing that was ever linked dies on a 404. /admin is the important one:
-          # the exported login card links «پنل فروشگاه» to /admin (_next/static/chunks/12lzqn_~_d9qf.js
-          # @5033) and «پنل سایت» to /admin/site (@5297) — both are the documents themselves now one level
-          # up, so the notices hop to / and /site/ rather than to a nested path.
-          for legacy, where in (('admin', '/'), ('admin/site', '/site/'), ('admin/login', '/login.html?next=%2F')):
+                    'var s=C&&C.authSession&&C.authSession();if(s&&s.access_token)return;'
+                    'location.replace(\'/login.html?next=\'+encodeURIComponent(location.pathname+(location.search||\'\')));'
+                    '}catch(e){}})();</script>\n</body>',1)
+                  p.write_text(new,encoding='utf-8'); print('index.html: login guard rewritten (carries the current path)')
+          # One-line notices for every path this host has used, so no bookmark or hard-coded link dies:
+          # /admin is the one the exported login card still uses for «پنل فروشگاه» (chunk 12lzqn_~_d9qf.js
+          # @5033) and shop-ops links /admin/site/ for the site admin; /site and /shop are the paths of
+          # the last two attempts at this layout. Every one lands on a face of the single panel page.
+          for legacy, where in (('admin', '/?shop=1'), ('admin/site', '/'), ('admin/login', '/login.html?next=%2F'),
+                                ('site', '/'), ('shop', '/?shop=1')):
               d=root/legacy
               d.mkdir(parents=True,exist_ok=True)
               (d/'index.html').write_text(
@@ -126,17 +124,21 @@ jobs:
           BOOT=$(grep -o 'site-cloud\.[0-9a-f]*\.js' index.html | head -1)
           test -n "$BOOT" -a -f "$BOOT" || { echo "::error=index.html points at a missing bootstrap ($BOOT)"; exit 1; }
           grep -q "$BOOT" login.html || { echo "::error=login.html points at a different bootstrap than index.html"; exit 1; }
-          grep -q "$BOOT" site/index.html || { echo "::error=/site/ points at a different bootstrap than the root"; exit 1; }
           SHOP=$(grep -o 'shop-ops\.[0-9a-f]*\.js' "$BOOT" | head -1)
           test -n "$SHOP" -a -f "$SHOP" || { echo "::error=bootstrap points at a missing shop-ops asset ($SHOP)"; exit 1; }
-          # the root IS the shop workspace now: it must stay the exported dashboard document with its
-          # workspace chunk and a bootstrap to refresh (a silent swap back to the CMS page is what this
-          # host looked like for weeks — the title and the chunk are how we notice)
-          grep -q 'داشبورد مدیر' index.html || { echo '::error=index.html is not the shop dashboard document'; exit 1; }
-          grep -q '0s294n3n15ion.js' index.html || { echo '::error=the dashboard lost its workspace chunk'; exit 1; }
-          grep -q 'site-cloud\.' index.html || { echo '::error=the dashboard has no bootstrap reference to refresh'; exit 1; }
-          test -f site/index.html || { echo '::error=no /site/ CMS document — refusing to publish'; exit 1; }
-          grep -q 'مدیریت سایت' site/index.html || { echo '::error=site/index.html is not the site CMS document'; exit 1; }
+          # the page must stay BOTH faces: the exported site-admin shell (its title proves it) and this
+          # repo's switch + shop mount. If either half disappears the panel is half a tool.
+          grep -q 'مدیریت سایت' index.html || { echo '::error=index.html is not the site-admin shell any more'; exit 1; }
+          grep -q 'panel-mode-boot' index.html || { echo '::error=index.html lost its two-face mode switch'; exit 1; }
+          grep -q 'shop-ops-mount' index.html || { echo '::error=index.html lost the shop workspace mount'; exit 1; }
+          grep -q 'site-cloud\.' index.html || { echo '::error=the panel page has no bootstrap reference to refresh'; exit 1; }
+          # our own control must sit in the flow (the app's header legitimately has fixed chrome of its
+          # own, so this checks what THIS repo injects, not the whole document)
+          grep -q 'position:sticky' index.html || { echo '::error=the mode switch must be sticky in-flow, not floating over the header'; exit 1; }
+          if awk '/<style id="panel-mode-css">/,/<\/style>/' index.html | grep -q 'position:fixed'; then
+            echo "::error=a position:fixed rule was added inside panel-mode-css — it lands on top of the app header on phones"
+            exit 1
+          fi
           python3 tools/cine.py verify
           grep -q backupView2 "$SHOP" || echo "::warning::the mirrored shop-ops has no backupView2 — the backup screen may not be published yet"
           python3 - <<'PY'
@@ -144,7 +146,7 @@ jobs:
           # a screen (that is exactly what a copy-list drift does)
           import pathlib,re
           bad=[]
-          for page in ('index.html','site/index.html','login.html'):
+          for page in ('index.html','login.html'):
               text=pathlib.Path(page).read_text(encoding='utf-8')
               for ref in set(re.findall(r'(?:src|href)="(/[^"?#]+\.(?:js|css|ico|png|jpe?g|svg|woff2?))"',text)):
                   if not pathlib.Path('.'+ref).exists(): bad.append(f'{page} → {ref}')

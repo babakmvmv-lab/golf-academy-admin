@@ -66,9 +66,9 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
         border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
   .dest button.on{background:#c9a24b;color:#04120c;box-shadow:0 2px 10px #c9a24b33}
   </style>
-  <div class="dest" role="group" aria-label="بعد از ورود کجا بروم؟">
-    <button type="button" data-dest="/">🛍 فضای فروشگاه</button>
-    <button type="button" data-dest="/site/">🌐 مدیریت سایت</button>
+  <div class="dest" role="group" aria-label="بعد از ورود کدام بخش باز شود؟">
+    <button type="button" data-dest="/">🌐 صفحه و پوستر سایت</button>
+    <button type="button" data-dest="/?shop=1">🛍 فضای فروشگاه</button>
   </div>
   <form id="f" autocomplete="on">
     <p class="err" id="e" role="alert" aria-live="polite"></p>
@@ -151,9 +151,10 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;colo
   // them — a path that is not on this list is dropped, never followed, so this form cannot be turned
   // into an open redirect.
   var NEXTS={
-    '/':'/', '':'/','/login.html':'/','/index.html':'/','/shop':'/','/?shop=1':'/',
-    '/admin':'/','/admin/':'/','/admin?shop=1':'/',
-    '/site':'/site/','/site/':'/site/','/admin/site':'/site/','/admin/site/':'/site/','/index':'/'
+    '/':'/', '':'/','/login.html':'/','/index.html':'/','/index':'/',
+    '/site':'/','/site/':'/','/admin/site':'/','/admin/site/':'/',
+    '/?shop=1':'/?shop=1','/shop':'/?shop=1','/shop/':'/?shop=1','/admin':'/?shop=1',
+    '/admin/':'/?shop=1','/admin/?shop=1':'/?shop=1','/?shop=1&x=1':'/?shop=1'
   };
   function resolve(want){return NEXTS.hasOwnProperty(want)?NEXTS[want]:'/';}
   var target=(function(){

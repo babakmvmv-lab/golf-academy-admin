@@ -21,8 +21,9 @@ import xml.dom.minidom
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CSS = ROOT / "cine.css"
 START, END = "<!-- ga-cinematic -->", "<!-- /ga-cinematic -->"
-# both panel documents, wherever they live on this host: / is the shop workspace, /site/ the site CMS
-PAGES = ("index.html", "site/index.html", "login.html")
+# the two pages this host owns: the panel page (site admin at /, shop workspace at /?shop=1)
+# and the sign-in page
+PAGES = ("index.html", "login.html")
 # Only characters inert inside a URL may stay literal. `#` starts the fragment (a raw one truncates
 # the SVG), and `<`/quotes/spaces must be percent-encoded — a "readable" data URI here means a
 # background that silently never paints.
