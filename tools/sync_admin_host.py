@@ -110,6 +110,61 @@ body main svg.lucide { display: block; }
 </style>
 <!-- admin-header-polish:end -->'''
 
+# The private routes get their own local scenic backgrounds; no public page is changed.
+BACKGROUND_CSS = {
+    "admin/index.html": r'''<!-- admin-background:begin -->
+<style id="admin-background">
+#shop-ops {
+  background-image: linear-gradient(180deg, rgba(3,10,7,.62), rgba(3,10,7,.72)), url("/admin/assets/admin-cinematic-bg.jpg") !important;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover !important;
+  background-attachment: fixed;
+}
+#shop-ops .sh-side {
+  background: linear-gradient(180deg, rgba(16,37,27,.91), rgba(10,25,18,.95)) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(108%);
+  backdrop-filter: blur(10px) saturate(108%);
+}
+@media (max-width:760px) {
+  #shop-ops { background-attachment: scroll; background-position: 58% center; }
+}
+</style>
+<!-- admin-background:end -->''',
+    "admin/site/index.html": r'''<!-- admin-background:begin -->
+<style id="admin-background">
+body {
+  background-image: linear-gradient(140deg, rgba(3,10,7,.60), rgba(3,10,7,.73)), url("/admin/assets/admin-cinematic-bg.jpg") !important;
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover !important;
+  background-attachment: fixed;
+}
+body aside {
+  -webkit-backdrop-filter: blur(12px) saturate(108%);
+  backdrop-filter: blur(12px) saturate(108%);
+}
+@media (max-width:760px) {
+  body { background-attachment: scroll; background-position: 58% center; }
+}
+</style>
+<!-- admin-background:end -->''',
+    "admin/login/index.html": r'''<!-- admin-background:begin -->
+<style id="admin-background">
+body {
+  background-image: linear-gradient(135deg, rgba(3,10,8,.72), rgba(3,10,8,.53) 55%, rgba(3,10,8,.70)), url("/admin/assets/admin-login-cinematic-bg.jpg") !important;
+  background-position: center 54%;
+  background-repeat: no-repeat;
+  background-size: cover !important;
+  background-attachment: fixed;
+}
+@media (max-width:760px) {
+  body { background-attachment: scroll; background-position: 54% center; }
+}
+</style>
+<!-- admin-background:end -->''',
+}
+
 # Keep the same login UI, but do not hide the Auth service's actual failure behind
 # "check email and password".  No credentials or raw server responses are exposed.
 AUTH_ERROR_OLD = (
@@ -211,13 +266,20 @@ def inject_navigation_adapter(boot: str) -> None:
             r"<!-- admin-header-polish:begin -->[\s\S]*?<!-- admin-header-polish:end -->",
             "", text,
         )
+        text = re.sub(
+            r"<!-- admin-background:begin -->[\s\S]*?<!-- admin-background:end -->",
+            "", text,
+        )
         tag = f'<script src="/{boot}"></script>'
         if text.count(tag) != 1:
             fail(f"expected exactly one {tag} in {rel}")
         text = text.replace(tag, tag + NAV_ADAPTER, 1)
         if text.lower().count("</head>") != 1:
             fail(f"expected exactly one closing head tag in {rel}")
-        text = re.sub(r"</head>", HEADER_POLISH + "</head>", text, count=1, flags=re.I)
+        background = BACKGROUND_CSS.get(rel)
+        if not background:
+            fail(f"no background style is configured for {rel}")
+        text = re.sub(r"</head>", HEADER_POLISH + background + "</head>", text, count=1, flags=re.I)
         path.write_text(text, encoding="utf-8")
 
 
@@ -271,6 +333,14 @@ def verify(manifest: dict, boot: str) -> None:
             fail(f"{rel} is missing the host-local header typography/icon polish")
         if "Vazirmatn" not in text or "stroke-width: 1.8" not in text:
             fail(f"{rel} is missing the intended Persian font or consistent icon styling")
+        if text.count("<!-- admin-background:begin -->") != 1:
+            fail(f"{rel} is missing its cinematic background")
+        if rel == "admin/login/index.html":
+            image = "admin-login-cinematic-bg.jpg"
+        else:
+            image = "admin-cinematic-bg.jpg"
+        if f"/admin/assets/{image}" not in text or not (ROOT / "admin/assets" / image).is_file():
+            fail(f"{rel} references a missing cinematic image: {image}")
     site = (ROOT / "admin/site/index.html").read_text(encoding="utf-8")
     if "<iframe" in site or "admin-login-guard" in site:
         fail("the site editor must stay on its own native Next route, not an iframe/redirect shell")
@@ -335,6 +405,9 @@ def preflight(main: Path) -> dict:
     for rel in ("admin/index.html", "admin/site/index.html", "admin/login/index.html"):
         if not (ROOT / rel).is_file():
             fail(f"the original admin route export is missing from this repository: {rel}")
+    for rel in ("admin/assets/admin-cinematic-bg.jpg", "admin/assets/admin-login-cinematic-bg.jpg"):
+        if not (ROOT / rel).is_file():
+            fail(f"required private admin background is missing: {rel}")
     return manifest
 
 
