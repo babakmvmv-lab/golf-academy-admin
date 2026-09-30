@@ -52,8 +52,17 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
       let body;try{body=JSON.parse(text);}catch(e){throw error('پاسخ سرور JSON معتبر نیست؛ ذخیره تأیید نشد.',res.status);}
       if(!res.ok){
         const authMessage=body.code==='WEB_AUTH_REQUIRED'?'نشست ابری معتبر نیست؛ دوباره وارد شوید. تغییرات محفوظ‌اند.':body.code==='WEB_ADMIN_REQUIRED'?'این حساب اجازهٔ انتشار سایت و فروشگاه ندارد.':'';
-        const msg=authMessage || res.status===413 ? 'سرور حجم این بخش را نپذیرفت (HTTP 413). تغییرات در صف محفوظ است؛ سقف تابع web-sync باید روی Supabase به‌روز شود.' : 'خطای سرویس ابری (HTTP '+res.status+')؛ '+String(body.err||body.error||body.message||'ذخیره تأیید نشد.');
-        throw error(msg,res.status,body.code||'');
+        // (authMessage || res.status===413) ? … : … used to win over the ternary, so an expired
+        // session was reported as "HTTP 413" — keep the branches explicit.
+        const msg=authMessage ? authMessage : (res.status===413
+          ? 'سرور حجم این بخش را نپذیرفت (HTTP 413). تغییرات در صف محفوظ است؛ سقف تابع web-sync باید روی Supabase به‌روز شود.'
+          : 'خطای سرویس ابری (HTTP '+res.status+')؛ '+String(body.err||body.error||body.msg||body.message||'ذخیره تأیید نشد.'));
+        const out=error(msg,res.status,body.code||'');
+        // GoTrue's own code (invalid_credentials, over_request_rate_limit, email_not_confirmed…) is
+        // what a sign-in form needs to explain itself; without it every failure said "wrong password".
+        out.errorCode=String(body.error_code||body.code||'');
+        out.serverMessage=String(body.msg||body.error_description||body.error||'').slice(0,200);
+        throw out;
       }
       return body;
     }catch(e){if(e.status)throw e;throw error(timeout ? 'مهلت پاسخ ابر تمام شد؛ تغییرات در صف محفوظ است.' : 'ارتباط با ابر برقرار نشد؛ تغییرات در همین دستگاه محفوظ است.',503,timeout?'TIMEOUT':'NETWORK');}
@@ -80,7 +89,7 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
     try{
       const data=await request(C.url+'/auth/v1/token?grant_type=password',{method:'POST',headers:headers(),body:JSON.stringify({email,password})});
       const s=saveAuth(data);schedule();return {ok:true,user:{id:s.user.id,email:s.user.email,name:s.user.name,cloud:true,store_only:s.user.app_metadata?.web_admin!==true}};
-    }catch(e){if(e.code==='WEB_ADMIN_REQUIRED')throw e;throw error('ورود ابری انجام نشد؛ ایمیل و رمز مدیر سایت را بررسی کنید.',e.status||401,'WEB_AUTH_REQUIRED');}
+    }catch(e){if(e.code==='WEB_ADMIN_REQUIRED')throw e;const out=error('ورود ابری انجام نشد؛ ایمیل و رمز مدیر سایت را بررسی کنید.',e.status||401,'WEB_AUTH_REQUIRED');out.errorCode=e.errorCode||'';out.serverMessage=e.serverMessage||'';throw out;}
   }
   function signOut(){
     const s=authSession();put(AUTH,null);try{localStorage.removeItem('puttclub_admin');}catch(e){}
