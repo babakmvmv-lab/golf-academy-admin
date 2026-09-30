@@ -15,6 +15,7 @@ jobs:
           set -e
           git clone --depth 1 https://github.com/babakmvmv-lab/golf-academy-pro.git /tmp/main
           find . -mindepth 1 -maxdepth 1 ! -name '.github' ! -name 'CNAME' ! -name 'README.md' -exec rm -rf {} +
+          touch .nojekyll
           for item in 404.html 404 _not-found _next academy admin checkout data images login panel product shop videos favicon.ico enter-academy.js index.txt MIS-Golf __next.__PAGE__.txt __next._full.txt __next._head.txt __next._index.txt __next._tree.txt; do
             [ -e "/tmp/main/$item" ] && cp -r "/tmp/main/$item" .
           done
