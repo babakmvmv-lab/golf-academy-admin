@@ -2,10 +2,10 @@
  {
   "key": "brand",
   "value": {
-   "logo": "/images/academy-logo.jpg",
+   "logo": "/images/academy-logo.webp",
    "enName": "Putt Club Golf Academy",
    "faName": "آکادمی گلف پات کلاب",
-   "logoHd": "/images/academy-logo-hd.jpg",
+   "logoHd": "/images/academy-logo-hd.webp",
    "faShort": "پات کلاب",
    "tagline": "آکادمی گلف"
   }
@@ -96,7 +96,7 @@
  {
   "key": "about",
   "value": {
-   "image": "/images/academy-about.jpg",
+   "image": "/images/academy-about.webp",
    "title": "آکادمی گلف پات کلاب",
    "kicker": "آکادمی ما",
    "paragraphs": [

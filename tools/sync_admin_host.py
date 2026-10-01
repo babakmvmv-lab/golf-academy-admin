@@ -115,7 +115,7 @@ BACKGROUND_CSS = {
     "admin/index.html": r'''<!-- admin-background:begin -->
 <style id="admin-background">
 #shop-ops {
-  background-image: linear-gradient(180deg, rgba(3,10,7,.62), rgba(3,10,7,.72)), url("/admin/assets/admin-cinematic-bg.jpg") !important;
+  background-image: linear-gradient(180deg, rgba(3,10,7,.62), rgba(3,10,7,.72)), url("/admin/assets/admin-cinematic-bg.webp") !important;
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover !important;
@@ -134,7 +134,7 @@ BACKGROUND_CSS = {
     "admin/site/index.html": r'''<!-- admin-background:begin -->
 <style id="admin-background">
 body {
-  background-image: linear-gradient(140deg, rgba(3,10,7,.60), rgba(3,10,7,.73)), url("/admin/assets/admin-cinematic-bg.jpg") !important;
+  background-image: linear-gradient(140deg, rgba(3,10,7,.60), rgba(3,10,7,.73)), url("/admin/assets/admin-cinematic-bg.webp") !important;
   background-position: center center;
   background-repeat: no-repeat;
   background-size: cover !important;
@@ -152,7 +152,7 @@ body aside {
     "admin/login/index.html": r'''<!-- admin-background:begin -->
 <style id="admin-background">
 body {
-  background-image: linear-gradient(135deg, rgba(3,10,8,.72), rgba(3,10,8,.53) 55%, rgba(3,10,8,.70)), url("/admin/assets/admin-login-cinematic-bg.jpg") !important;
+  background-image: linear-gradient(135deg, rgba(3,10,8,.72), rgba(3,10,8,.53) 55%, rgba(3,10,8,.70)), url("/admin/assets/admin-login-cinematic-bg.webp") !important;
   background-position: center 54%;
   background-repeat: no-repeat;
   background-size: cover !important;
@@ -239,6 +239,7 @@ def patch_bootstrap(manifest: dict) -> str:
 
 
 def refresh_route_refs(boot: str, chunks: dict[str, str]) -> None:
+    raster_ref = re.compile(r"(?P<url>/[^\"'<>?#\s]+\.(?:jpe?g|png|ico))(?P<suffix>[?#][^\"'<>\s]*)?", re.I)
     for path in sorted((ROOT / "admin").rglob("*")):
         if not path.is_file() or path.suffix.lower() not in {".html", ".txt"}:
             continue
@@ -249,6 +250,12 @@ def refresh_route_refs(boot: str, chunks: dict[str, str]) -> None:
             text = re.sub(r"(?<![-\w])" + re.escape(original), current, text)
         if re.search(r"pc-[0-9a-f]{12}-pc-[0-9a-f]{12}-", text):
             fail(f"corrupted Next chunk reference in {path.relative_to(ROOT)}")
+        def local_webp(match: re.Match[str]) -> str:
+            url = match.group("url")
+            target = ROOT / url.lstrip("/")
+            webp = target.with_suffix(".webp")
+            return ("/" + webp.relative_to(ROOT).as_posix() + (match.group("suffix") or "")) if webp.is_file() else match.group(0)
+        text = raster_ref.sub(local_webp, text)
         path.write_text(text, encoding="utf-8")
 
 
@@ -336,9 +343,9 @@ def verify(manifest: dict, boot: str) -> None:
         if text.count("<!-- admin-background:begin -->") != 1:
             fail(f"{rel} is missing its cinematic background")
         if rel == "admin/login/index.html":
-            image = "admin-login-cinematic-bg.jpg"
+            image = "admin-login-cinematic-bg.webp"
         else:
-            image = "admin-cinematic-bg.jpg"
+            image = "admin-cinematic-bg.webp"
         if f"/admin/assets/{image}" not in text or not (ROOT / "admin/assets" / image).is_file():
             fail(f"{rel} references a missing cinematic image: {image}")
     site = (ROOT / "admin/site/index.html").read_text(encoding="utf-8")
@@ -371,7 +378,7 @@ def verify(manifest: dict, boot: str) -> None:
         text = path.read_text(encoding="utf-8")
         refs = set(re.findall(r'(?:src|href)=["\'](/[^"\'?#]+)["\']', text))
         for ref in refs:
-            if ref.startswith(("/_next/", "/images/", "/data/")):
+            if ref.startswith(("/_next/", "/images/", "/data/", "/source/assets/")) or ref in {"/favicon.webp", "/mis_sat.webp", "/mis_topo.webp"}:
                 target = ROOT / ref.lstrip("/")
                 if not target.is_file():
                     missing.append(f"{path.relative_to(ROOT)} → {ref}")
@@ -394,7 +401,10 @@ def preflight(main: Path) -> dict:
         fail(f"invalid current bootstrap in upstream manifest: {boot!r}")
     if not re.fullmatch(r"shop-ops\.[0-9a-f]{12}\.js", shop):
         fail(f"invalid shop-ops asset in upstream manifest: {shop!r}")
-    required = ("_next", "images", "data", "favicon.ico", "enter-academy.js", boot, shop)
+    required = (
+        "_next", "images", "data", "favicon.ico", "favicon.webp", "mis_sat.webp", "mis_topo.webp",
+        "source/assets/puttclub_logo.webp", "source/assets/puttclub_favicon.webp", "enter-academy.js", boot, shop,
+    )
     missing = [name for name in required if not (main / name).exists()]
     if missing:
         fail("upstream export is missing required assets: " + ", ".join(missing))
@@ -408,9 +418,9 @@ def preflight(main: Path) -> dict:
     for rel in ("admin/index.html", "admin/site/index.html", "admin/login/index.html"):
         if not (ROOT / rel).is_file():
             fail(f"the original admin route export is missing from this repository: {rel}")
-    for rel in ("admin/assets/admin-cinematic-bg.jpg", "admin/assets/admin-login-cinematic-bg.jpg"):
+    for rel in ("admin/assets/admin-cinematic-bg.webp", "admin/assets/admin-login-cinematic-bg.webp"):
         if not (ROOT / rel).is_file():
-            fail(f"required private admin background is missing: {rel}")
+            fail(f"required private WebP admin background is missing: {rel}")
     return manifest
 
 
@@ -419,7 +429,9 @@ def sync(main: Path) -> None:
     # never leave a local checkout half-cleaned when someone runs this tool by hand.
     manifest = preflight(main)
     clean_root()
-    for name in ("_next", "images", "data", "favicon.ico", "enter-academy.js"):
+    for name in ("_next", "images", "data", "favicon.ico", "favicon.webp", "mis_sat.webp", "mis_topo.webp", "enter-academy.js"):
+        copy_item(main / name, ROOT / name)
+    for name in ("source/assets/puttclub_logo.webp", "source/assets/puttclub_favicon.webp"):
         copy_item(main / name, ROOT / name)
     for pattern in ("site-cloud.*.js", "shop-ops.*.js"):
         hits = sorted(main.glob(pattern))
