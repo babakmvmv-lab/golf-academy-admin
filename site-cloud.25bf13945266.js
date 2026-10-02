@@ -655,9 +655,57 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
     const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify({format:'puttclub-public-draft-v1',at:new Date().toISOString(),pending:queue},null,2)],{type:'application/json'}));
     a.href=url;a.download='puttclub-public-pending.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
-  function renderStatus(){
+/* ══ دیدِ دکمهٔ شناور ابر — ابزار پشت‌صحنه، نه بخشی از سایت ══
+     PC_CLOUD_UI_HIDDEN_V1
+     روی سایت عمومی (puttclub.ir) هیچ‌وقت ساخته نمی‌شود؛ نه بازدیدکننده، نه
+     مدیرِ وارد‌شده آن را روی سایت نمی‌بیند. روی میزبان مدیریت
+     (admin.puttclub.ir یا مسیر /admin) مثل قبل در دسترس است.
+     برای باز کردن صریح روی سایت عمومی: puttclub.ir/?cloud=1 و بستن: ?cloud=0 */
+  const CLOUD_UI_KEY='puttclub_cloud_ui_v1';
+  function onAdminHost(){
+    try{
+      const h=String((location&&location.hostname)||'').toLowerCase();
+      if(!h||h==='localhost'||h==='127.0.0.1'||h.endsWith('.localhost'))return true;  /* توسعهٔ محلی */
+      if(h==='admin.puttclub.ir'||h.indexOf('admin.')===0)return true;                /* میزبان مدیریت */
+      if(String((location&&location.pathname)||'').indexOf('/admin')===0)return true; /* مسیر مدیریت */
+      return false;
+    }catch(e){ return false; }
+  }
+  function cloudUIRequested(){
+    try{
+      const q=new URLSearchParams(String((location&&location.search)||''));
+      if(q.get('cloud')==='1'){ try{localStorage.setItem(CLOUD_UI_KEY,'1');}catch(e){} return true; }
+      if(q.get('cloud')==='0'){ try{localStorage.removeItem(CLOUD_UI_KEY);}catch(e){} return false; }
+    }catch(e){}
+    try{ return localStorage.getItem(CLOUD_UI_KEY)==='1'; }catch(e){ return false; }
+  }
+  function canSeeCloudUI(){
+    const s=authSession();
+    if(s){
+      const m=(s.user&&s.user.app_metadata)||{};
+      /* کارمند فروشگاه بدون دسترسی مدیریت کل: مثل قبل دکمه را نمی‌بیند */
+      if(m.web_shop_staff===true && m.web_admin!==true)return false;
+      /* مدیر: روی میزبان مدیریت، یا روی سایت عمومی فقط با احضار صریح ?cloud=1 */
+      return cloudUIRequested() || onAdminHost();
+    }
+    /* بدون نشست: فقط ادمین محلی قدیمی در مسیر /admin */
+    if(!onAdminHost())return false;
+    const a=json('puttclub_admin',null);
+    return !!(a && typeof a.email==='string' && a.email.length>3 && /^\/admin(?:\/|$)/.test(location.pathname));
+  }
+  function hideCloudUI(){
+    if(statusNode)statusNode.hidden=true;
+    if(cloudBtn){try{cloudBtn.remove();}catch(e){} cloudBtn=null;}
+    try{
+      const p=document.getElementById('pc-site-cloud');if(p)p.remove();
+      const b=document.getElementById('pc-cloud-btn');if(b)b.remove();
+    }catch(e){}
+  }
+    function renderStatus(){
     if(typeof document==='undefined' || !document.body)return;
-    if(!isAdmin() || authSession()?.user?.app_metadata?.web_shop_staff===true && authSession()?.user?.app_metadata?.web_admin!==true){if(statusNode)statusNode.hidden=true;return;}
+    /* دکمهٔ ابر پشت‌صحنه است: روی سایت عمومی هرگز ساخته نمی‌شود؛
+       روی میزبان مدیریت در دسترس می‌ماند و با ?cloud=1 قابل احضار است. */
+    if(!canSeeCloudUI()){hideCloudUI();return;}
     if(!statusNode){
       const style=document.createElement('style');style.textContent='#pc-cloud-btn{position:fixed;bottom:14px;left:14px;z-index:9999;width:46px;height:46px;border-radius:50%;border:1px solid #c9a24b66;background:#0a1712f2;color:#f2ecdd;font-size:19px;line-height:1;cursor:pointer;box-shadow:0 6px 24px #0007;backdrop-filter:blur(10px);display:grid;place-items:center;padding:0;transition:transform .15s}#pc-cloud-btn:hover{transform:scale(1.07)}#pc-cloud-btn .n{position:absolute;top:-4px;inset-inline-end:-4px;min-width:17px;height:17px;border-radius:9px;background:#c9a24b;color:#050d09;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}#pc-cloud-btn.ok{border-color:#3fae72;color:#8fe0b0}#pc-cloud-btn.err{border-color:#c96a5d;color:#ffb9ab}#pc-cloud-btn.busy{border-color:#5d9ac9;color:#a9d4f5}#pc-site-cloud{position:fixed;bottom:68px;left:14px;z-index:9999;width:min(430px,calc(100vw - 24px));border:1px solid #c9a24b77;border-radius:15px;background:#0a1712f7;color:#eee5cf;padding:12px 14px;box-shadow:0 10px 40px #0008;direction:rtl;font:12px/1.9 Vazirmatn,Tahoma,sans-serif;backdrop-filter:blur(12px)}#pc-site-cloud[hidden]{display:none}#pc-site-cloud p{margin:6px 0;color:#b4c6b8}#pc-site-cloud button{border:1px solid #c9a24b66;background:#c9a24b12;color:#f2d895;border-radius:8px;padding:4px 9px;cursor:pointer;font:inherit}#pc-site-cloud .pc-actions{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}#pc-site-cloud .pc-error{color:#ffd1a4}#pc-site-cloud small{display:block;color:#93aa9c;line-height:1.8}#pc-site-cloud .pc-head{display:flex;justify-content:space-between;align-items:center;font-weight:800;gap:8px}#pc-site-cloud .pc-head button{border:0;background:none;color:#93aa9c;font-size:15px;padding:2px 8px}';document.head.appendChild(style);
       statusNode=document.createElement('aside');statusNode.id='pc-site-cloud';statusNode.setAttribute('aria-label','وضعیت انتشار ابری سایت');statusNode.hidden=true;document.body.appendChild(statusNode);
@@ -704,7 +752,9 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
       script.onerror=()=>{clearTimeout(tm);script.remove();shopCodeFlight=null;reject(Error('فایل پنل فروشگاه دریافت نشد؛ صفحه را تازه کنید.'));};document.head.appendChild(script);
     });return shopCodeFlight;
   }
-  window.PC_SITE_CLOUD={loadShopOps,accessToken,signInAdmin,signOut,changePassword,authSession,authDialog,request:apiFetch,pull,flush,subscribe,settings,table,liveState,useTable,useProduct,useProductReviewMeta,useCard,brandShort,productHref,webpImageUrl,gateRevision,gateSessionValid,importLegacy,submitPublic,signupInbox,signupDelete,shopCategories,
+    /* هر دقیقه بازبینی: اگر دسترسی از بین رفت، دکمه نباید سرگردان بماند. */
+  try{ setInterval(()=>{ try{ renderStatus(); }catch(e){} },60000); }catch(e){}
+window.PC_SITE_CLOUD={loadShopOps,accessToken,signInAdmin,signOut,changePassword,authSession,authDialog,request:apiFetch,pull,flush,subscribe,settings,table,liveState,useTable,useProduct,useProductReviewMeta,useCard,brandShort,productHref,webpImageUrl,gateRevision,gateSessionValid,importLegacy,submitPublic,signupInbox,signupDelete,shopCategories,
     status:()=>({phase,pending:Object.keys(queue),error:lastError,lastRead,lastAck,revision}),
     publish,normalizeSetting,normalizeRecord,keyFor,resolvePending,showcaseApplied};
 })();
@@ -1360,6 +1410,7 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
   '.pc-pop .hd h3{margin:0;font-size:17px;font-weight:900;color:#f2ecdd}'+
   '.pc-pop .hd .sub{margin-top:5px;font-size:11.5px;color:#93aa9c}'+
   '.pc-pop .hd .tag{margin-inline-start:auto;flex-shrink:0;font-size:10px;font-weight:800;color:#e3c98f;border:1px solid rgba(201,162,75,.38);border-radius:999px;padding:4px 11px;background:rgba(201,162,75,.08)}'+
+  '.pc-story{margin-inline-start:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:11.5px;font-weight:900;color:#fff;cursor:pointer;background:linear-gradient(135deg,#d62976,#fa7e1e);border:none;border-radius:999px;padding:7px 15px;box-shadow:0 6px 18px -6px rgba(214,41,118,.75);transition:transform .15s ease,box-shadow .15s ease}'+'.pc-story:hover{transform:translateY(-1px);box-shadow:0 9px 24px -6px rgba(250,126,30,.8)}'+'.pc-story:disabled{opacity:.65;cursor:progress;transform:none}'+'.pc-story svg{width:13px;height:13px;fill:currentColor}'+
   '.pc-pop .close{position:sticky;top:0;float:left;margin:0 0 0 4px;width:34px;height:34px;border-radius:12px;border:1px solid rgba(201,162,75,.3);background:rgba(5,13,9,.7);color:#e3c98f;font-size:17px;cursor:pointer;line-height:1}'+
   /* podium — same composition as the panel: 2nd | 1st | 3rd with medal, avatar, name, points, rank pill */
   '.pc-podium{display:flex;align-items:flex-end;justify-content:center;gap:14px;padding:26px 6px 8px}'+
@@ -1413,11 +1464,200 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
  }
  document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
  function settings(){try{return api.settings()||{};}catch(e){return {};}}
+/* ══════════════ استوری ۱۰۸۰×۱۹۲۰ — همان تمپلیت پنل آکادمی ══════════════
+   PC_SITE_STORY_V1 • پورت‌شده از source/js/app.js پنل، بدون تغییر در چیدمان.
+   تفاوت‌ها: آواتار از دادهٔ منتشرشده (data-URI) به‌جای avatar(pid)،
+   و برند از تنظیمات سایت به‌جای GA_BRAND. */
+ const STORY_W=1080, STORY_H=1920;
+ function brandOf(){
+  const b={};
+  try{ const s=settings(); Object.assign(b,(s&&s.brand)||{}); }catch(e){}
+  /* نامزدهای لوگو به ترتیب اولویت: WebP سبک‌تر است و همان تصویر جی‌پی‌جی را دارد */
+  const cand=[];
+  const push=v=>{const s=String(v||'');if(s&&cand.indexOf(s)<0)cand.push(s);};
+  push(String(b.logoHd||'').replace(/\.jpe?g$/i,'.webp'));
+  push(b.logoHd);
+  push('/images/academy-logo-hd.webp');
+  push(String(b.logo||'').replace(/\.jpe?g$/i,'.webp'));
+  push(b.logo);
+  push('/images/academy-logo.webp');
+  return {
+   fa:b.faName||'آکادمی گلف پات کلاب',
+   en:b.enName||'Putt Club Golf Academy',
+   logo:cand[0]||'/images/academy-logo.webp',
+   logos:cand,
+   host:(location.hostname||'puttclub.ir').replace(/^www\./,''),
+   ig:String(b.instagram||'puttclub').replace(/^@/,'')
+  };
+ }
+ function storyBtnHTML(){
+  return '<button type="button" class="pc-story" id="pc-story-btn" title="خروجی عکس ۱۰۸۰×۱۹۲۰ آمادهٔ استوری اینستاگرام">'+
+   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Zm0 2a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1H7Zm5 12.2a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 6a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>'+
+   '📱 استوری</button>';
+ }
+ function showStoryPreview(blob,fname){
+  const url=URL.createObjectURL(blob);
+  let pr=document.getElementById('pc-story-preview');
+  if(!pr){pr=document.createElement('div');pr.id='pc-story-preview';document.body.appendChild(pr);}
+  pr.style.cssText='position:fixed;inset:0;z-index:130;direction:rtl;background:rgba(3,7,12,.93);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px';
+  pr.innerHTML='<div style="text-align:center;max-width:400px;width:100%">'+
+   '<img src="'+url+'" alt="استوری" style="width:100%;max-height:70vh;object-fit:contain;border-radius:18px;border:2px solid rgba(212,175,55,.55);box-shadow:0 14px 60px rgba(0,0,0,.6)">'+
+   '<div style="color:#cdd7e1;font-size:12.5px;line-height:2;margin:12px 4px">📥 عکس ۱۰۸۰×۱۹۲۰ ساخته شد — اگر خودکار دانلود نشد، روی تصویر <b>لمس طولانی → Add to Photos</b> بزن؛ بعد اینستاگرام ← استوری ← انتخاب عکس</div>'+
+   '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'+
+   '<a id="pc-spv-dl" href="'+url+'" download="'+fname+'" style="background:linear-gradient(135deg,#d4af37,#b08a28);color:#1a1407;font-weight:900;text-decoration:none;padding:10px 22px;border-radius:12px;display:inline-block;font-size:13px">⬇ دانلود عکس</a>'+
+   '<button type="button" id="pc-spv-share" style="background:linear-gradient(135deg,#d62976,#fa7e1e);color:#fff;border:none;font:inherit;font-weight:900;padding:10px 22px;border-radius:12px;font-size:13px;cursor:pointer">📤 اشتراک (مستقیم استوری)</button>'+
+   '<button type="button" id="pc-spv-x" style="background:rgba(255,255,255,.08);color:#e9eff6;border:1px solid rgba(255,255,255,.18);font:inherit;padding:10px 22px;border-radius:12px;font-size:13px;cursor:pointer">بستن</button></div></div>';
+  const x=document.getElementById('pc-spv-x'); if(x)x.onclick=()=>{pr.style.display='none';};
+  const sh=document.getElementById('pc-spv-share');
+  if(sh)sh.onclick=()=>{
+   try{
+    const f=new File([blob],fname,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})) navigator.share({files:[f],title:fname}).catch(()=>{});
+    else if(navigator.share) navigator.share({title:fname}).catch(()=>{});
+    else alert('اشتراک مستقیم در این مرورگر پشتیبانی نمی‌شود — از «دانلود عکس» استفاده کنید.');
+   }catch(e){}
+  };
+ }
+ /* موتور رندر — همان کد پنل */
+ function igStory(btn,fname,paint){
+  const old=btn?btn.innerHTML:'';
+  const finish=()=>{if(btn){btn.disabled=false;btn.innerHTML=old;}};
+  if(btn){btn.disabled=true;btn.innerHTML='⏳ در حال ساخت…';}
+  const W=STORY_W,H=STORY_H,cvs=document.createElement('canvas');
+  cvs.width=W;cvs.height=H;
+  const c=cvs.getContext('2d');
+  const GOLD='#d4af37',GL='#f3d779',FG='#e9eff6',MUT='#9aa7b5';
+  const F=(w2,px)=>{c.font=w2+' '+px+'px Vazirmatn, Tahoma, sans-serif';};
+  const rrect=(x,y,w,h,r)=>{c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();};
+  const txt=(t2,x,y,w2,px,col,align,maxW)=>{let s2=px;F(w2,s2);
+   if(maxW){while(s2>13&&c.measureText(t2).width>maxW){s2-=2;F(w2,s2);}}
+   c.fillStyle=col;c.textAlign=align||'center';c.textBaseline='alphabetic';c.direction='rtl';c.fillText(t2,x,y);};
+  const g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0a0f16');g.addColorStop(.55,'#0d1420');g.addColorStop(1,'#0a0f16');
+  c.fillStyle=g;c.fillRect(0,0,W,H);
+  const rg=(x,y,r,a)=>{const rr=c.createRadialGradient(x,y,0,x,y,r);rr.addColorStop(0,'rgba(212,175,55,'+a+')');rr.addColorStop(1,'rgba(212,175,55,0)');c.fillStyle=rr;c.fillRect(x-r,y-r,r*2,r*2);};
+  rg(930,120,420,.14);rg(120,1740,460,.12);rg(540,960,700,.05);
+  const tg=c.createLinearGradient(0,0,W,0);tg.addColorStop(0,'#7a5f17');tg.addColorStop(.25,GOLD);tg.addColorStop(.5,'#f7e7ac');tg.addColorStop(.75,GOLD);tg.addColorStop(1,'#7a5f17');
+  c.fillStyle=tg;c.fillRect(0,0,W,14);
+  const helpers={W,H,GOLD,GL,FG,MUT,F,rrect,txt,c};
+  const brand=brandOf();
+  const done=()=>{
+   const fy=H-118;
+   c.strokeStyle='rgba(212,175,55,.45)';c.lineWidth=2;c.beginPath();c.moveTo(120,fy-42);c.lineTo(W-120,fy-42);c.stroke();
+   txt(brand.host,W/2,fy+8,'800',34,GL);
+   txt('📷 اینستاگرام  @'+brand.ig,W/2,fy+58,'500',24,MUT,'center',960);
+   cvs.toBlob(b=>{showStoryPreview(b,fname);finish();},'image/png');
+  };
+  const run=()=>{Promise.resolve(paint(helpers)).then(()=>done()).catch(()=>done());};
+  const img=new Image();
+  let drew=false;
+  const afterLogo=()=>{
+   c.save();c.beginPath();c.arc(W/2,172,82,0,7);c.lineWidth=6;c.strokeStyle=GOLD;c.stroke();c.restore();
+   txt(brand.fa,W/2,308,'900',46,GL);
+   txt(brand.en.toUpperCase().split('').join(' '),W/2,352,'400',21,'rgba(212,175,55,.75)');
+   c.strokeStyle='rgba(212,175,55,.45)';c.lineWidth=2;c.beginPath();c.moveTo(240,386);c.lineTo(W-240,386);c.stroke();
+   run();
+  };
+  img.onload=()=>{if(drew)return;drew=true;
+   c.save();c.beginPath();c.arc(W/2,172,76,0,7);c.clip();
+   try{c.drawImage(img,W/2-76,172-76,152,152);}catch(e){}
+   c.restore();afterLogo();};
+  /* اگر یک نامزد لوگو بار نشد، بعدی را امتحان کن؛ در نهایت بدون لوگو ادامه بده */
+  let li=0;
+  img.onerror=()=>{
+   if(drew)return;
+   li++;
+   if(brand.logos&&li<brand.logos.length){img.src=brand.logos[li];return;}
+   drew=true;afterLogo();
+  };
+  /* فونت را قبل از رسم صبر کن تا تایپوگرافی دقیقاً مثل پنل باشد */
+  const startDraw=()=>{img.src=brand.logo;};
+  const fr=(document.fonts&&document.fonts.ready)?document.fonts.ready.catch(()=>{}):Promise.resolve();
+  fr.then(startDraw,startDraw);
+ }
+ /* نقاشی سکو — دقیقاً چیدمان پنل: چپ ۳، وسط ۱، راست ۲ */
+ function podiumStory(btn,d,top){
+  igStory(btn,'استوری-سکوی-قهرمانی.png',({W,H,GOLD,GL,FG,MUT,rrect,txt,c})=>{
+   txt('🏆 سکوی قهرمانی فصل',W/2,440,'700',30,MUT);
+   txt('FedEx Style  •  '+fa(d.seasonYear||1405),W/2,486,'500',22,'rgba(212,175,55,.7)');
+   const visual=[top[2],top[0],top[1]];
+   const cw=280,gap=36;
+   const x0=(W-(cw*3+gap*2))/2;
+   const floor=1540;
+   const baseH=[300,520,390];
+   const medalCol=[['#f0c49a','#c67b3a','#8a4e1c'],['#ffe38a','#d4af37','#8c6e1d'],['#f4f7fb','#b8c2cc','#7d8792']];
+   return Promise.all(visual.map((r,i)=>new Promise(res=>{
+    if(!r){res(null);return;}
+    const im=new Image();
+    im.onload=()=>res({r,im,i});
+    im.onerror=()=>res({r,im:null,i});
+    im.src=r.avatar||'';
+   }))).then(rows=>{
+    rows.forEach(item=>{
+     if(!item||!item.r)return;
+     const r=item.r,i=item.i;
+     const x=x0+i*(cw+gap);
+     const bh=baseH[i];
+     const by=floor-bh;
+     const cx=x+cw/2;
+     const mc=medalCol[i];
+     const ring=r.rankColor||mc[1];
+     const ar=58,ay=by;
+     const g=c.createLinearGradient(x,by,x,floor);
+     if(r.rank===1){g.addColorStop(0,'rgba(212,175,55,.42)');g.addColorStop(1,'rgba(11,15,20,.72)');}
+     else if(r.rank===2){g.addColorStop(0,'rgba(192,192,192,.36)');g.addColorStop(1,'rgba(11,15,20,.72)');}
+     else{g.addColorStop(0,'rgba(205,127,50,.34)');g.addColorStop(1,'rgba(11,15,20,.72)');}
+     c.fillStyle=g;
+     c.strokeStyle=r.rank===1?'rgba(212,175,55,.75)':r.rank===2?'rgba(192,192,192,.5)':'rgba(205,127,50,.5)';
+     c.lineWidth=r.rank===1?3:2;
+     rrect(x,by,cw,bh,18);c.fill();c.stroke();
+     c.beginPath();c.arc(cx,ay,ar+6,0,7);c.fillStyle='#0b0f14';c.fill();
+     if(item.im){c.save();c.beginPath();c.arc(cx,ay,ar,0,7);c.clip();
+      try{c.drawImage(item.im,cx-ar,ay-ar,ar*2,ar*2);}catch(e){}
+      c.restore();}
+     c.beginPath();c.arc(cx,ay,ar+3,0,7);c.strokeStyle=ring;c.lineWidth=5;c.stroke();
+     const tTop=ay+ar+18,tBot=floor-22,mid=(tTop+tBot)/2;
+     txt(r.name,cx,mid-28,'800',30,FG,'center',cw-28);
+     txt(fa(r.pts||0)+' امتیاز',cx,mid+16,'800',26,GL);
+     const pill=r.rankText||'';
+     const pc=r.rankColor||GOLD;
+     const pw=136,ph=40,px=cx-pw/2,py=mid+36;
+     c.fillStyle=pc+'22';c.strokeStyle=pc+'88';c.lineWidth=2;
+     rrect(px,py,pw,ph,14);c.fill();c.stroke();
+     txt(pill,cx,py+28,'800',18,pc);
+     const my=ay-ar-48;
+     c.save();
+     c.shadowColor=mc[1];c.shadowBlur=18;
+     c.fillStyle=r.rank===1?'#c9a227':r.rank===2?'#8a949e':'#a45c28';
+     c.beginPath();c.moveTo(cx-8,my+8);c.lineTo(cx-28,my-36);c.lineTo(cx-2,my-4);c.closePath();c.fill();
+     c.beginPath();c.moveTo(cx+8,my+8);c.lineTo(cx+28,my-36);c.lineTo(cx+2,my-4);c.closePath();c.fill();
+     c.fillStyle=r.rank===1?'#e8d48a':r.rank===2?'#dfe6ee':'#e8b07a';
+     c.beginPath();c.moveTo(cx-6,my+6);c.lineTo(cx-18,my-28);c.lineTo(cx,my-2);c.closePath();c.fill();
+     c.beginPath();c.moveTo(cx+6,my+6);c.lineTo(cx+18,my-28);c.lineTo(cx,my-2);c.closePath();c.fill();
+     c.shadowBlur=22;
+     const mg=c.createRadialGradient(cx-8,my-10,3,cx,my,34);
+     mg.addColorStop(0,'#fff6d8');mg.addColorStop(.22,mc[0]);mg.addColorStop(.62,mc[1]);mg.addColorStop(1,mc[2]);
+     c.fillStyle=mg;
+     c.beginPath();c.arc(cx,my,32,0,7);c.fill();
+     c.shadowBlur=0;
+     c.lineWidth=4;c.strokeStyle='rgba(255,255,255,.55)';c.stroke();
+     c.beginPath();c.arc(cx,my,24,0,7);c.strokeStyle=mc[2];c.lineWidth=2.2;c.stroke();
+     c.beginPath();c.arc(cx,my,24,-0.9,0.35);c.strokeStyle='rgba(255,255,255,.45)';c.lineWidth=2;c.stroke();
+     c.restore();
+     txt(String(r.rank),cx,my+11,'900',28,r.rank===2?'#243040':'#2a1408');
+    });
+   });
+  });
+ }
+ function wireStory(root,d,top){
+  const b=root.querySelector('#pc-story-btn');
+  if(b)b.onclick=()=>podiumStory(b,d,top);
+ }
+
  function openPodium(){
   const d=settings().seasonPodium||{};
   const top=Array.isArray(d.top)?d.top.slice(0,3):[];
   const head='<button type="button" class="close" aria-label="بستن">×</button>'+
-   '<div class="hd"><span class="ic">🏆</span><div><h3>سکوی قهرمانی فصل</h3><div class="sub">فصل '+fa(d.seasonYear||1405)+' • '+fa(d.matchesHeld||0)+' مسابقه برگزارشده • '+fa(d.playersActive||0)+' بازیکن فعال</div></div><span class="tag">FedEx Style</span></div>';
+   '<div class="hd"><span class="ic">🏆</span><div><h3>سکوی قهرمانی فصل</h3><div class="sub">فصل '+fa(d.seasonYear||1405)+' • '+fa(d.matchesHeld||0)+' مسابقه برگزارشده • '+fa(d.playersActive||0)+' بازیکن فعال</div></div>'+storyBtnHTML()+'</div>';
   let body;
   if(!top.length){
    body='<div class="empty">هنوز نتیجه‌ای برای فصل '+fa(d.seasonYear||1405)+' منتشر نشده است.<br>نتایج از پنل آکادمی منتشر می‌شود.</div>';
@@ -1439,7 +1679,8 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
    }).join('');
    body='<div class="pc-podium">'+cols+'</div>';
   }
-  shell(head+body);
+  const root=shell(head+body);
+  wireStory(root,d,top);
  }
  function openCalendar(){
   const d=settings().seasonCalendar||{};
