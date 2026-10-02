@@ -679,6 +679,7 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
     }catch(e){}
     try{ return localStorage.getItem(CLOUD_UI_KEY)==='1'; }catch(e){ return false; }
   }
+  /* PC_CLOUD_UI_V2 — مدیر می‌بیند، دیگران نه، زیر لایه‌ها */
   function canSeeCloudUI(){
     const s=authSession();
     if(s){
@@ -686,7 +687,9 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
       /* کارمند فروشگاه بدون دسترسی مدیریت کل: مثل قبل دکمه را نمی‌بیند */
       if(m.web_shop_staff===true && m.web_admin!==true)return false;
       /* مدیر: روی میزبان مدیریت، یا روی سایت عمومی فقط با احضار صریح ?cloud=1 */
-      return cloudUIRequested() || onAdminHost();
+      /* مدیر همه‌جا می‌بیند — از جمله روی سایت عمومی (خواستهٔ مالک).
+         بازکردن صریح با ?cloud=1 هم همچنان کار می‌کند. */
+      return true;
     }
     /* بدون نشست: فقط ادمین محلی قدیمی در مسیر /admin */
     if(!onAdminHost())return false;
@@ -707,7 +710,7 @@ window.PC_SITE_CLOUD_CONFIG={"url":"https://iultwqtzvrysugfxwshw.supabase.co","k
        روی میزبان مدیریت در دسترس می‌ماند و با ?cloud=1 قابل احضار است. */
     if(!canSeeCloudUI()){hideCloudUI();return;}
     if(!statusNode){
-      const style=document.createElement('style');style.textContent='#pc-cloud-btn{position:fixed;bottom:14px;left:14px;z-index:9999;width:46px;height:46px;border-radius:50%;border:1px solid #c9a24b66;background:#0a1712f2;color:#f2ecdd;font-size:19px;line-height:1;cursor:pointer;box-shadow:0 6px 24px #0007;backdrop-filter:blur(10px);display:grid;place-items:center;padding:0;transition:transform .15s}#pc-cloud-btn:hover{transform:scale(1.07)}#pc-cloud-btn .n{position:absolute;top:-4px;inset-inline-end:-4px;min-width:17px;height:17px;border-radius:9px;background:#c9a24b;color:#050d09;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}#pc-cloud-btn.ok{border-color:#3fae72;color:#8fe0b0}#pc-cloud-btn.err{border-color:#c96a5d;color:#ffb9ab}#pc-cloud-btn.busy{border-color:#5d9ac9;color:#a9d4f5}#pc-site-cloud{position:fixed;bottom:68px;left:14px;z-index:9999;width:min(430px,calc(100vw - 24px));border:1px solid #c9a24b77;border-radius:15px;background:#0a1712f7;color:#eee5cf;padding:12px 14px;box-shadow:0 10px 40px #0008;direction:rtl;font:12px/1.9 Vazirmatn,Tahoma,sans-serif;backdrop-filter:blur(12px)}#pc-site-cloud[hidden]{display:none}#pc-site-cloud p{margin:6px 0;color:#b4c6b8}#pc-site-cloud button{border:1px solid #c9a24b66;background:#c9a24b12;color:#f2d895;border-radius:8px;padding:4px 9px;cursor:pointer;font:inherit}#pc-site-cloud .pc-actions{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}#pc-site-cloud .pc-error{color:#ffd1a4}#pc-site-cloud small{display:block;color:#93aa9c;line-height:1.8}#pc-site-cloud .pc-head{display:flex;justify-content:space-between;align-items:center;font-weight:800;gap:8px}#pc-site-cloud .pc-head button{border:0;background:none;color:#93aa9c;font-size:15px;padding:2px 8px}';document.head.appendChild(style);
+      const style=document.createElement('style');style.textContent='#pc-cloud-btn{position:fixed;bottom:14px;left:14px;z-index:48;width:40px;height:40px;border-radius:50%;border:1px solid #c9a24b66;background:#0a1712f2;color:#f2ecdd;font-size:19px;line-height:1;cursor:pointer;box-shadow:0 6px 24px #0007;backdrop-filter:blur(10px);display:grid;place-items:center;padding:0;opacity:.42;transition:transform .15s,opacity .2s}#pc-cloud-btn:hover,#pc-cloud-btn:focus-visible{transform:scale(1.07);opacity:1}#pc-cloud-btn .n{position:absolute;top:-4px;inset-inline-end:-4px;min-width:17px;height:17px;border-radius:9px;background:#c9a24b;color:#050d09;font-size:10px;font-weight:900;display:grid;place-items:center;padding:0 4px}#pc-cloud-btn.ok{border-color:#3fae72;color:#8fe0b0}#pc-cloud-btn.err{border-color:#c96a5d;color:#ffb9ab}#pc-cloud-btn.busy{border-color:#5d9ac9;color:#a9d4f5}#pc-site-cloud{position:fixed;bottom:62px;left:14px;z-index:48;width:min(430px,calc(100vw - 24px));border:1px solid #c9a24b77;border-radius:15px;background:#0a1712f7;color:#eee5cf;padding:12px 14px;box-shadow:0 10px 40px #0008;direction:rtl;font:12px/1.9 Vazirmatn,Tahoma,sans-serif;backdrop-filter:blur(12px)}#pc-site-cloud[hidden]{display:none}#pc-site-cloud p{margin:6px 0;color:#b4c6b8}#pc-site-cloud button{border:1px solid #c9a24b66;background:#c9a24b12;color:#f2d895;border-radius:8px;padding:4px 9px;cursor:pointer;font:inherit}#pc-site-cloud .pc-actions{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}#pc-site-cloud .pc-error{color:#ffd1a4}#pc-site-cloud small{display:block;color:#93aa9c;line-height:1.8}#pc-site-cloud .pc-head{display:flex;justify-content:space-between;align-items:center;font-weight:800;gap:8px}#pc-site-cloud .pc-head button{border:0;background:none;color:#93aa9c;font-size:15px;padding:2px 8px}';document.head.appendChild(style);
       statusNode=document.createElement('aside');statusNode.id='pc-site-cloud';statusNode.setAttribute('aria-label','وضعیت انتشار ابری سایت');statusNode.hidden=true;document.body.appendChild(statusNode);
       cloudBtn=document.createElement('button');cloudBtn.id='pc-cloud-btn';cloudBtn.type='button';cloudBtn.title='ذخیره ابری سایت و فروشگاه';cloudBtn.setAttribute('aria-expanded','false');cloudBtn.setAttribute('aria-controls','pc-site-cloud');cloudBtn.textContent='☁';cloudBtn.onclick=()=>{statusNode.hidden=!statusNode.hidden;cloudBtn.setAttribute('aria-expanded',String(!statusNode.hidden));};document.body.appendChild(cloudBtn);
     }
