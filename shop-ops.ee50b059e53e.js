@@ -319,6 +319,7 @@ var GOLF_DATE = (() => {
       '.sc-btn:hover{background:rgba(212,175,55,.28)}' +
       '.sc-btn[aria-expanded="true"]{background:rgba(212,175,55,.34);border-color:rgba(212,175,55,.7)}' +
       '.sc-pop{position:fixed;z-index:2147483000;direction:rtl;width:290px;max-width:calc(100vw - 20px);' +
+        'max-height:calc(100vh - 16px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;' +
         'background:#0d1520;border:1px solid rgba(212,175,55,.38);border-radius:14px;padding:13px;' +
         'box-shadow:0 18px 55px rgba(0,0,0,.7);font:12px/1.7 Vazirmatn,Tahoma,sans-serif;color:#e9eff6}' +
       '.sc-pop[hidden]{display:none}' +
@@ -412,8 +413,10 @@ var GOLF_DATE = (() => {
     if (!CTX || !POP) return;
     const r = CTX.input.getBoundingClientRect();
     const W = 290, H = POP.offsetHeight || 340;
-    let top = r.bottom + 6;
-    if (top + H > window.innerHeight - 8) top = Math.max(8, r.top - H - 6);
+    let top = r.bottom + 6;                                                       /* اولویت: زیر فیلد */
+    if (top + H > window.innerHeight - 8) top = Math.max(8, r.top - H - 6);        /* جا نبود: بالای فیلد */
+    /* CAL_POP_CLAMP_V1 — هرگز از کادر دید بیرون نزند (نمایشگر کم‌ارتفاع یا فیلد لبهٔ پایین) */
+    top = Math.max(8, Math.min(top, Math.max(8, window.innerHeight - H - 8)));
     let left = r.left;
     if (left + W > window.innerWidth - 8) left = Math.max(8, window.innerWidth - W - 8);
     POP.style.top = Math.round(top) + 'px';
